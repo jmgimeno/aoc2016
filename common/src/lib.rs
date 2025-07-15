@@ -1,18 +1,8 @@
 use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-
-#[derive(Debug)]
-pub struct RootPathError(String);
-
-impl Display for RootPathError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Unable to get to root dir: {}", self.0)
-    }
-}
-impl Error for RootPathError {}
 
 pub fn read_file_as_string(path: &str) -> Result<String, Box<dyn Error>> {
     let path = get_path_from_root(path)?;
@@ -39,9 +29,9 @@ where
         .collect()
 }
 
-fn get_path_from_root(path: &str) -> Result<PathBuf, RootPathError> {
+fn get_path_from_root(path: &str) -> Result<PathBuf, String> {
     match Path::new(env!("CARGO_MANIFEST_DIR")).parent() {
-        None => Err(RootPathError("Unable to get to root dir".to_string())),
+        None => Err("Unable to get to root dir".to_owned()),
         Some(parent) => Ok(parent.join(path)),
     }
 }
