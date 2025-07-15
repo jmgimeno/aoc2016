@@ -17,16 +17,13 @@ impl Error for RootPathError {}
 pub fn read_file_as_string(path: &str) -> Result<String, Box<dyn Error>> {
     let path = get_path_from_root(path)?;
     let input = fs::read_to_string(path)?;
-    Ok(input.trim().to_string())
+    Ok(input.trim().to_owned())
 }
 
 pub fn read_file_as_lines(path: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let path = get_path_from_root(path)?;
-    Ok(fs::read_to_string(path)
-        .expect("Something went wrong reading the file")
-        .lines()
-        .map(|s| s.to_string())
-        .collect())
+    let content = fs::read_to_string(path)?;
+    Ok(content.lines().map(str::to_owned).collect())
 }
 
 pub fn read_file_as_elements<T>(path: &str) -> Result<Vec<T>, Box<dyn Error>>
@@ -35,9 +32,8 @@ where
     <T as FromStr>::Err: Debug,
 {
     let path = get_path_from_root(path)?;
-    fs::read_to_string(path)
-        .expect("Something went wrong reading the file")
-        .lines()
+    let content = fs::read_to_string(path)?;
+    content.lines()
         .map(|s| s.parse()
             .map_err(|e| Box::<dyn Error>::from(format!("{:?}", e))))
         .collect()
