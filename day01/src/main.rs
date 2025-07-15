@@ -1,5 +1,4 @@
 use once_cell::sync::Lazy;
-use std::error;
 use std::error::Error;
 use std::str::FromStr;
 
@@ -35,7 +34,7 @@ fn part2(input: &[Turn]) -> u32 {
     panic!("Should never get here");
 }
 
-fn load_input(path: &str) -> Result<Vec<Turn>, Box<dyn error::Error>> {
+fn load_input(path: &str) -> Result<Vec<Turn>, Box<dyn Error>> {
     common::read_file_as_string(path)?
         .split(", ")
         .map(|s| {
@@ -161,7 +160,7 @@ impl std::fmt::Display for TurnParseError {
     }
 }
 
-impl error::Error for TurnParseError {}
+impl Error for TurnParseError {}
 
 impl FromStr for Turn {
     type Err = TurnParseError;
