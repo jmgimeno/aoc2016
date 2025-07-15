@@ -3,11 +3,15 @@ use std::fs;
 use std::str::FromStr;
 
 pub fn read_file_as_string(path: &str) -> String {
+    let ws_root = workspace_root::get_workspace_root();
+    let path = ws_root.join(path);
     let input = fs::read_to_string(path).expect("Something went wrong reading the file");
     input.trim().to_string()
 }
 
 pub fn read_file_as_lines(path: &str) -> Vec<String> {
+    let ws_root = workspace_root::get_workspace_root();
+    let path = ws_root.join(path);
     fs::read_to_string(path)
         .expect("Something went wrong reading the file")
         .lines()
@@ -17,6 +21,8 @@ pub fn read_file_as_lines(path: &str) -> Vec<String> {
 
 pub fn read_file_as_elements<T>(path: &str) -> Vec<T>
  where T: FromStr, <T as FromStr>::Err: Debug {
+    let ws_root = workspace_root::get_workspace_root();
+    let path = ws_root.join(path);
     fs::read_to_string(path)
         .expect("Something went wrong reading the file")
         .lines()

@@ -1,9 +1,13 @@
 use std::str::FromStr;
+use once_cell::sync::Lazy;
+
+static INPUT: Lazy<Vec<Turn>> = Lazy::new(|| {
+    load_input("data/day01.txt")
+});
 
 fn main() {
-    let input = load_input("data/day01.txt");
-    println!("Part 1: {}", part1(&input));
-    println!("Part 2: {}", part2(&input));
+    println!("Part 1: {}", part1(&INPUT));
+    println!("Part 2: {}", part2(&INPUT));
 }
 
 fn part1(input: &[Turn]) -> u32 {
@@ -200,13 +204,11 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        let input = load_input("../data/day01.txt");
-        assert_eq!(part1(&input), 300);
+        assert_eq!(part1(&INPUT), 300);
     }
 
     #[test]
     fn test_part2() {
-        let input = load_input("../data/day01.txt");
-        assert_eq!(part2(&input), 159);
+        assert_eq!(part2(&INPUT), 159);
     }
 }
