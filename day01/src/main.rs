@@ -1,9 +1,10 @@
-use std::str::FromStr;
 use once_cell::sync::Lazy;
+use std::error;
+use std::error::Error;
+use std::str::FromStr;
 
-static INPUT: Lazy<Vec<Turn>> = Lazy::new(|| {
-    load_input("data/day01.txt")
-});
+static INPUT: Lazy<Vec<Turn>> =
+    Lazy::new(|| load_input("data/day01.txt").expect("Failed to load input"));
 
 fn main() {
     println!("Part 1: {}", part1(&INPUT));
@@ -34,10 +35,13 @@ fn part2(input: &[Turn]) -> u32 {
     panic!("Should never get here");
 }
 
-fn load_input(path: &str) -> Vec<Turn> {
-    common::read_file_as_string(path)
+fn load_input(path: &str) -> Result<Vec<Turn>, Box<dyn error::Error>> {
+    common::read_file_as_string(path)?
         .split(", ")
-        .map(|s| s.parse().unwrap())
+        .map(|s| {
+            s.parse()
+                .map_err(|e| Box::<dyn Error>::from(format!("{:?}", e)))
+        })
         .collect()
 }
 
@@ -148,8 +152,19 @@ enum Turn {
     Right(u32),
 }
 
+#[derive(Debug)]
+struct TurnParseError(String);
+
+impl std::fmt::Display for TurnParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Turn parse error: {}", self.0)
+    }
+}
+
+impl error::Error for TurnParseError {}
+
 impl FromStr for Turn {
-    type Err = String;
+    type Err = TurnParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim();
@@ -159,7 +174,7 @@ impl FromStr for Turn {
         } else if s.starts_with("R") {
             Ok(Turn::Right(*steps))
         } else {
-            Err(format!("Invalid turn: {}", s))
+            Err(TurnParseError(s.to_string()))
         }
     }
 }
