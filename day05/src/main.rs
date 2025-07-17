@@ -18,7 +18,7 @@ fn part1(input: &str) -> String {
         buffer.extend_from_slice(suffix_str.as_bytes());
         let hash = Md5::digest(&buffer);
         if hash[0] == 0 && hash[1] == 0 && (hash[2] & 0xF0) == 0 {
-            result.push(format!("{:x}", hash[2] & 0x0F).chars().next().unwrap());
+            result.push(hex_digit_char(hash[2] & 0x0F));
         }
         suffix += 1;
     }
