@@ -14,25 +14,21 @@ fn part1(input: &[Triplet]) -> usize {
 }
 
 fn part2(input: &[Triplet]) -> usize {
-    let transposed = transpose(&input);
+    let transposed = transpose_group_of_three(&input);
     part1(&transposed)
 }
 
-fn transpose(input: &[Triplet]) -> Vec<Triplet> {
-    let mut by_columns = Vec::with_capacity(input.len() * 3);
-    input.iter().for_each(|t| {
-        by_columns.push(t.0);
-    });
-    input.iter().for_each(|t| {
-        by_columns.push(t.1);
-    });
-    input.iter().for_each(|t| {
-        by_columns.push(t.2);
-    });
-    by_columns
-        .chunks(3)
-        .map(|c| Triplet(c[0], c[1], c[2]))
-        .collect()
+fn transpose_group_of_three(input: &[Triplet]) -> Vec<Triplet> {
+    let mut result = Vec::with_capacity(input.len());
+    for chunk in input.chunks(3) {
+        if chunk.len() == 3 {
+            let (a, b, c) = (&chunk[0], &chunk[1], &chunk[2]);
+            result.push(Triplet(a.0, b.0, c.0));
+            result.push(Triplet(a.1, b.1, c.1));
+            result.push(Triplet(a.2, b.2, c.2));
+        }
+    }
+    result
 }
 
 #[derive(Debug)]
