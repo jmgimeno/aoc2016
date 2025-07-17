@@ -60,16 +60,17 @@ impl Room {
 
     fn descrypt(&self) -> String {
         let key = (self.sector_id % 26) as u8;
-        let mut result = String::new();
-        for c in self.name.chars() {
-            if c == '-' {
-                result.push(' ');
-                continue;
-            }
-            let dec = (c as u8 - 'a' as u8 + key) % 26 + 'a' as u8;
-            result.push(dec as char);
-        }
-        result
+        self.name
+            .chars()
+            .map(|c| {
+                if c == '-' {
+                    ' '
+                } else {
+                    let shifted = ((c as u8 - b'a' + key) % 26) + b'a';
+                    shifted as char
+                }
+            })
+            .collect()
     }
 }
 
