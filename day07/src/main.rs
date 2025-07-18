@@ -68,7 +68,7 @@ impl IPv7Address {
     fn supports_ssl(&self) -> bool {
         let all_abas_supernet = IPv7Address::all_triplets(&self.supernet);
         let all_babs_hypernet = IPv7Address::all_triplets(&self.hypernet);
-        let all_babs_supernet = IPv7Address::abas_to_babs(&all_abas_supernet);
+        let all_babs_supernet = IPv7Address::invert_triplets(&all_abas_supernet);
         all_babs_supernet.intersection(&all_babs_hypernet).count() > 0
     }
 
@@ -79,14 +79,14 @@ impl IPv7Address {
             .collect()
     }
 
-    fn get_triplets(s: &str) -> Vec<(u8, u8, u8)> {
+    fn get_triplets(s: &str) -> impl Iterator<Item = (u8, u8, u8)>  {
         s.as_bytes()
             .windows(3)
             .filter(|w| w[0] == w[2] && w[0] != w[1])
             .map(|w| (w[0], w[1], w[2]))
-            .collect()
     }
-    fn abas_to_babs(abas: &HashSet<(u8, u8, u8)>) -> HashSet<(u8, u8, u8)> {
+
+    fn invert_triplets(abas: &HashSet<(u8, u8, u8)>) -> HashSet<(u8, u8, u8)> {
         abas.iter().map(|ab| (ab.1, ab.0, ab.1)).collect()
     }
 }
