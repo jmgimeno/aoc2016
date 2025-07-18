@@ -4,3 +4,5 @@
 - Day 2: Bathroom Security
 - Day 3: Squares With Three Sides
 - Day 4: Security Through Obscurity
+- Day 5: How About a Nice Game of Chess?
+- Day 6: Signals and Noise
