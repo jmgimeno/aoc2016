@@ -1,4 +1,5 @@
 use once_cell::sync::Lazy;
+use std::fmt;
 use std::str::FromStr;
 
 static INPUT: Lazy<Vec<Operation>> =
@@ -19,7 +20,7 @@ fn part1(input: &[Operation]) -> usize {
 fn part2(input: &[Operation]) {
     let mut screen = Screen::new(50, 6);
     screen.run(input);
-    println!("{}", screen.to_string());
+    println!("{}", screen);
 }
 
 #[derive(Debug, Clone)]
@@ -33,21 +34,27 @@ impl FromStr for Operation {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let rect_regex = regex::Regex::new(r"rect (\d+)x(\d+)").unwrap();
-        let rotate_row_regex = regex::Regex::new(r"rotate row y=(\d+) by (\d+)").unwrap();
-        let rotate_column_regex = regex::Regex::new(r"rotate column x=(\d+) by (\d+)").unwrap();
-        if let Some(captures) = rect_regex.captures(s) {
+        use Operation::*;
+
+        static RECT_REGEX: Lazy<regex::Regex> =
+            Lazy::new(|| regex::Regex::new(r"rect (\d+)x(\d+)").unwrap());
+        static ROTATE_ROW_REGEX: Lazy<regex::Regex> =
+            Lazy::new(|| regex::Regex::new(r"rotate row y=(\d+) by (\d+)").unwrap());
+        static ROTATE_COLUMN_REGEX: Lazy<regex::Regex> =
+            Lazy::new(|| regex::Regex::new(r"rotate column x=(\d+) by (\d+)").unwrap());
+
+        if let Some(captures) = RECT_REGEX.captures(s) {
             let width = captures.get(1).unwrap().as_str().parse::<usize>().unwrap();
             let height = captures.get(2).unwrap().as_str().parse::<usize>().unwrap();
-            return Ok(Operation::Rect { width, height });
-        } else if let Some(captures) = rotate_row_regex.captures(s) {
+            return Ok(Rect { width, height });
+        } else if let Some(captures) = ROTATE_ROW_REGEX.captures(s) {
             let y = captures.get(1).unwrap().as_str().parse::<usize>().unwrap();
             let by = captures.get(2).unwrap().as_str().parse::<usize>().unwrap();
-            return Ok(Operation::RotateRow { y, by });
-        } else if let Some(captures) = rotate_column_regex.captures(s) {
+            return Ok(RotateRow { y, by });
+        } else if let Some(captures) = ROTATE_COLUMN_REGEX.captures(s) {
             let x = captures.get(1).unwrap().as_str().parse::<usize>().unwrap();
             let by = captures.get(2).unwrap().as_str().parse::<usize>().unwrap();
-            return Ok(Operation::RotateColumn { x, by });
+            return Ok(RotateColumn { x, by });
         } else {
             return Err("Invalid operation".to_string());
         }
@@ -70,19 +77,11 @@ impl Screen {
     }
 
     fn rotate_row(&mut self, y: usize, by: usize) {
-        let mut row = self.0[y].clone();
-        // for _ in 0..by {
-        //     row.rotate_right(1);
-        // }
-        row.rotate_right(by);
-        self.0[y] = row;
+        self.0[y].rotate_right(by);
     }
 
     fn rotate_column(&mut self, x: usize, by: usize) {
         let mut column = self.0.iter().map(|row| row[x]).collect::<Vec<_>>();
-        // for _ in 0..by {
-        //     column.rotate_right(1);
-        // }
         column.rotate_right(by);
         for (y, pixel) in self.0.iter_mut().enumerate() {
             pixel[x] = column[y];
@@ -106,16 +105,17 @@ impl Screen {
             .map(|row| row.iter().filter(|&p| *p).count())
             .sum()
     }
+}
 
-    fn to_string(&self) -> String {
-        let mut s = String::new();
-        for row in self.0.iter() {
-            for pixel in row.iter() {
-                s.push(if *pixel { '#' } else { '.' });
+impl fmt::Display for Screen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for row in &self.0 {
+            for &pixel in row {
+                write!(f, "{}", if pixel { '#' } else { '.' })?;
             }
-            s.push('\n');
+            writeln!(f)?;
         }
-        s
+        Ok(())
     }
 }
 
