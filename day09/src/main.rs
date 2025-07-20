@@ -8,96 +8,67 @@ fn main() {
 }
 
 fn part1(input: &str) -> usize {
-    let mut rest = input.as_bytes();
-    let mut result = 0;
-    let mut state = State::Regular(0);
-    while !rest.is_empty() {
-        let current = rest[0];
-        rest = &rest[1..];
-        match state {
-            State::Regular(x) => match current {
-                b'(' => {
-                    result += x;
-                    state = State::FirstNum(0);
-                }
-                _ => state = State::Regular(x + 1),
-            },
-            State::FirstNum(x) => match current {
-                b'x' => {
-                    state = State::SecondNum(x, 0);
-                }
-                c => {
-                    let digit = c - b'0';
-                    state = State::FirstNum(10 * x + digit as usize);
-                }
-            },
-            State::SecondNum(x, y) => match current {
-                b')' => {
-                    result += x * y;
-                    state = State::Regular(0);
-                    rest = &rest[x..];
-                }
-                c => {
-                    let digit = c - b'0';
-                    state = State::SecondNum(x, 10 * y + digit as usize);
-                }
-            },
-        }
-    }
-    if let State::Regular(x) = state {
-        return result + x;
-    }
-    unreachable!("should have gotten a state");
+    part(input.as_bytes(), |r| r.len() )
 }
 
 fn part2(input: &str) -> usize {
-    let mut rest = input.as_bytes();
+    part2_bytes(input.as_bytes())
+}
+
+fn part2_bytes(input: &[u8]) -> usize {
+    part(input, |r| part2_bytes(r) )
+}
+
+fn part<F>(input: &[u8], count: F) -> usize
+where
+    F: Fn(&[u8]) -> usize,
+{
+    enum ParserState {
+        Regular(usize),
+        FirstNum(usize),
+        SecondNum(usize, usize),
+    }
+
+    let mut rest = input;
     let mut result = 0;
-    let mut state = State::Regular(0);
+    let mut state = ParserState::Regular(0);
     while !rest.is_empty() {
         let current = rest[0];
         rest = &rest[1..];
         match state {
-            State::Regular(x) => match current {
+            ParserState::Regular(x) => match current {
                 b'(' => {
                     result += x;
-                    state = State::FirstNum(0);
+                    state = ParserState::FirstNum(0);
                 }
-                _ => state = State::Regular(x + 1),
+                _ => state = ParserState::Regular(x + 1),
             },
-            State::FirstNum(x) => match current {
+            ParserState::FirstNum(x) => match current {
                 b'x' => {
-                    state = State::SecondNum(x, 0);
+                    state = ParserState::SecondNum(x, 0);
                 }
                 c => {
                     let digit = c - b'0';
-                    state = State::FirstNum(10 * x + digit as usize);
+                    state = ParserState::FirstNum(10 * x + digit as usize);
                 }
             },
-            State::SecondNum(x, y) => match current {
+            ParserState::SecondNum(x, y) => match current {
                 b')' => {
-                    let s = std::str::from_utf8(&rest[..x]).unwrap();
-                    result += y * part2(s);
-                    state = State::Regular(0);
+                    result += y * count(&rest[..x]);
+                    state = ParserState::Regular(0);
                     rest = &rest[x..];
                 }
                 c => {
                     let digit = c - b'0';
-                    state = State::SecondNum(x, 10 * y + digit as usize);
+                    state = ParserState::SecondNum(x, 10 * y + digit as usize);
                 }
             },
         }
     }
-    if let State::Regular(x) = state {
+    if let ParserState::Regular(x) = state {
         return result + x;
     }
     unreachable!("should have gotten a state");
-}
-
-enum State {
-    Regular(usize),
-    FirstNum(usize),
-    SecondNum(usize, usize),
 }
 
 #[cfg(test)]
