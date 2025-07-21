@@ -4,7 +4,7 @@ use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
 
-static PARSED_INPUT: Lazy<(Vec<Bot>, Vec<Move>)> = Lazy::new(|| {
+static PARSED_INPUT: Lazy<(Vec<Bot>, Vec<Transfer>)> = Lazy::new(|| {
     let input = common::read_file_as_lines("data/day10.txt").unwrap();
     parse_input(&input)
 });
@@ -16,14 +16,19 @@ fn main() {
     println!("Part 2; {:?}", part2(&factory));
 }
 
-fn part1(factory: &mut Factory, moves: &[Move], min_target: u32, max_target: u32) -> Option<u32> {
-    let mut queue = VecDeque::from(moves.to_vec());
+fn part1(
+    factory: &mut Factory,
+    transfers: &[Transfer],
+    min_target: u32,
+    max_target: u32,
+) -> Option<u32> {
+    let mut queue: VecDeque<_> = transfers.iter().cloned().collect();
     let mut comparer_bot = None;
     while !queue.is_empty() {
-        let move_ = queue.pop_front().unwrap();
-        let next = factory.step(&move_);
+        let transfer = queue.pop_front().unwrap();
+        let next = factory.step(&transfer);
         if next.len() == 2 && next[0].value == min_target && next[1].value == max_target {
-            comparer_bot = Some(move_.bot);
+            comparer_bot = Some(transfer.bot);
         }
         queue.extend(next.into_iter());
     }
@@ -43,87 +48,87 @@ struct Factory {
 impl Factory {
     fn new(bots: &[Bot]) -> Self {
         Self {
-            bots: bots.iter().map(|b| (b.id, b.clone())).collect(),
+            bots: bots.iter().map(|b| (b.id, *b)).collect(),
             holding: bots.iter().map(|b| (b.id, None)).collect(),
             output: HashMap::new(),
         }
     }
 
-    fn step(&mut self, move_: &Move) -> Vec<Move> {
-        let Move { value, bot: bot_id } = move_;
-        let held = &self.holding[bot_id];
-        match held {
+    fn step(&mut self, transfer: &Transfer) -> Vec<Transfer> {
+        match self.holding.get_mut(&transfer.bot).and_then(Option::take) {
             None => {
-                self.holding.insert(*bot_id, Some(*value));
+                self.holding.insert(transfer.bot, Some(transfer.value));
                 Vec::new()
             }
             Some(other) => {
-                let min = min(*value, *other);
-                let max = max(*value, *other);
-                self.holding.insert(*bot_id, None);
-                let Bot { id: _, low, high } = self.bots[bot_id];
-                let mut moves = Vec::new();
-                match low {
-                    Receiver::Bot(output_id) => {
-                        moves.push(Move {
-                            value: min,
-                            bot: output_id,
-                        });
-                    }
+                let Bot { low, high, .. } = self.bots[&transfer.bot];
+                let mut new_sendings = Vec::new();
+
+                let mut process = |receiver, val| match receiver {
+                    Receiver::Bot(bot_id) => new_sendings.push(Transfer {
+                        value: val,
+                        bot: bot_id,
+                    }),
                     Receiver::Output(output_id) => {
-                        self.output.insert(output_id, min);
+                        self.output.insert(output_id, val);
                     }
-                }
-                match high {
-                    Receiver::Bot(output_id) => {
-                        moves.push(Move {
-                            value: max,
-                            bot: output_id,
-                        });
-                    }
-                    Receiver::Output(output_id) => {
-                        self.output.insert(output_id, max);
-                    }
-                }
-                moves
+                };
+
+                process(low, min(transfer.value, other));
+                process(high, max(transfer.value, other));
+
+                new_sendings
             }
         }
     }
 }
 
-fn parse_input<T: AsRef<str>>(lines: &[T]) -> (Vec<Bot>, Vec<Move>) {
+fn parse_input<T: AsRef<str>>(lines: &[T]) -> (Vec<Bot>, Vec<Transfer>) {
     let mut bots = Vec::new();
-    let mut moves = Vec::new();
+    let mut transfers = Vec::new();
     for line in lines {
-        if let Ok(bot) = Bot::from_str(line.as_ref()) {
+        if let Ok(bot) = line.as_ref().parse() {
             bots.push(bot);
-        } else if let Ok(move_) = Move::from_str(line.as_ref()) {
-            moves.push(move_);
+        } else if let Ok(transfer) = line.as_ref().parse() {
+            transfers.push(transfer);
         }
     }
-    (bots, moves)
+    (bots, transfers)
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+enum ParseError {
+    Regex,
+    Int(std::num::ParseIntError),
+}
+
+impl From<std::num::ParseIntError> for ParseError {
+    fn from(e: std::num::ParseIntError) -> Self {
+        ParseError::Int(e)
+    }
 }
 
 #[derive(Debug, Clone)]
-struct Move {
+struct Transfer {
     value: u32,
     bot: u32,
 }
 
-static MOVE_REGEX: Lazy<Regex> =
+static TRANSFER_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^value (\d+) goes to bot (\d+)$").unwrap());
 
-impl FromStr for Move {
-    type Err = ();
+impl FromStr for Transfer {
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some(cap) = MOVE_REGEX.captures(s) {
+        if let Some(cap) = TRANSFER_REGEX.captures(s) {
             Ok(Self {
-                value: cap[1].parse().unwrap(),
-                bot: cap[2].parse().unwrap(),
+                value: cap[1].parse()?,
+                bot: cap[2].parse()?,
             })
         } else {
-            Err(())
+            Err(ParseError::Regex)
         }
     }
 }
@@ -137,17 +142,17 @@ enum Receiver {
 static RECEIVER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(bot|output) (\d+)$").unwrap());
 
 impl FromStr for Receiver {
-    type Err = ();
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Some(cap) = RECEIVER_REGEX.captures(s) {
             match &cap[1] {
-                "bot" => Ok(Receiver::Bot(cap[2].parse().unwrap())),
-                "output" => Ok(Receiver::Output(cap[2].parse().unwrap())),
+                "bot" => Ok(Receiver::Bot(cap[2].parse()?)),
+                "output" => Ok(Receiver::Output(cap[2].parse()?)),
                 _ => unreachable!(),
             }
         } else {
-            Err(())
+            Err(ParseError::Regex)
         }
     }
 }
@@ -163,17 +168,17 @@ static BOT_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^bot (\d+) gives low to (\w+ \d+) and high to (\w+ \d+)$").unwrap());
 
 impl FromStr for Bot {
-    type Err = ();
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Some(cap) = BOT_REGEX.captures(s) {
             Ok(Self {
-                id: cap[1].parse().unwrap(),
-                low: cap[2].parse().unwrap(),
-                high: cap[3].parse().unwrap(),
+                id: cap[1].parse()?,
+                low: cap[2].parse()?,
+                high: cap[3].parse()?,
             })
         } else {
-            Err(())
+            Err(ParseError::Regex)
         }
     }
 }
