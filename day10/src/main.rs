@@ -13,7 +13,7 @@ fn main() {
     let mut factory = Factory::new(&PARSED_INPUT.0);
     let part1 = part1(&mut factory, &PARSED_INPUT.1, 17, 61);
     println!("Part 1: {:?}", part1.unwrap());
-    println!("Part 2; {:?}", part2(&factory));
+    println!("Part 2: {:?}", part2(&factory));
 }
 
 fn part1(
