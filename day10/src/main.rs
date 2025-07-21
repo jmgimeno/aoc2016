@@ -1,8 +1,8 @@
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
-use once_cell::sync::Lazy;
 
 static PARSED_INPUT: Lazy<(Vec<Bot>, Vec<Move>)> = Lazy::new(|| {
     let input = common::read_file_as_lines("data/day10.txt").unwrap();
@@ -10,7 +10,7 @@ static PARSED_INPUT: Lazy<(Vec<Bot>, Vec<Move>)> = Lazy::new(|| {
 });
 
 fn main() {
-    let mut factory  = Factory::new(&PARSED_INPUT.0);
+    let mut factory = Factory::new(&PARSED_INPUT.0);
     let part1 = part1(&mut factory, &PARSED_INPUT.1, 17, 61);
     println!("Part 1: {:?}", part1.unwrap());
     println!("Part 2; {:?}", part2(&factory));
@@ -22,9 +22,7 @@ fn part1(factory: &mut Factory, moves: &[Move], min_target: u32, max_target: u32
     while !queue.is_empty() {
         let move_ = queue.pop_front().unwrap();
         let next = factory.step(&move_);
-        if next.len() == 2
-            && next[0].value == min_target
-            && next[1].value == max_target {
+        if next.len() == 2 && next[0].value == min_target && next[1].value == max_target {
             comparer_bot = Some(move_.bot);
         }
         queue.extend(next.into_iter());
@@ -46,7 +44,7 @@ impl Factory {
     fn new(bots: &[Bot]) -> Self {
         Self {
             bots: bots.iter().map(|b| (b.id, b.clone())).collect(),
-            holding: bots.iter().map(|b| (b.id,None)).collect(),
+            holding: bots.iter().map(|b| (b.id, None)).collect(),
             output: HashMap::new(),
         }
     }
@@ -93,7 +91,7 @@ impl Factory {
     }
 }
 
-fn parse_input<T : AsRef<str>>(lines: &[T]) -> (Vec<Bot>, Vec<Move>) {
+fn parse_input<T: AsRef<str>>(lines: &[T]) -> (Vec<Bot>, Vec<Move>) {
     let mut bots = Vec::new();
     let mut moves = Vec::new();
     for line in lines {
@@ -112,12 +110,14 @@ struct Move {
     bot: u32,
 }
 
+static MOVE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^value (\d+) goes to bot (\d+)$").unwrap());
+
 impl FromStr for Move {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let regexp = Regex::new(r"^value (\d+) goes to bot (\d+)$").unwrap();
-        if let Some(cap) = regexp.captures(s) {
+        if let Some(cap) = MOVE_REGEX.captures(s) {
             Ok(Self {
                 value: cap[1].parse().unwrap(),
                 bot: cap[2].parse().unwrap(),
@@ -134,12 +134,13 @@ enum Receiver {
     Output(u32),
 }
 
+static RECEIVER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(bot|output) (\d+)$").unwrap());
+
 impl FromStr for Receiver {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let regexp = Regex::new(r"^(bot|output) (\d+)$").unwrap();
-        if let Some(cap) = regexp.captures(s) {
+        if let Some(cap) = RECEIVER_REGEX.captures(s) {
             match &cap[1] {
                 "bot" => Ok(Receiver::Bot(cap[2].parse().unwrap())),
                 "output" => Ok(Receiver::Output(cap[2].parse().unwrap())),
@@ -158,13 +159,14 @@ struct Bot {
     high: Receiver,
 }
 
+static BOT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^bot (\d+) gives low to (\w+ \d+) and high to (\w+ \d+)$").unwrap());
+
 impl FromStr for Bot {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let regexp =
-            Regex::new(r"^bot (\d+) gives low to (\w+ \d+) and high to (\w+ \d+)$").unwrap();
-        if let Some(cap) = regexp.captures(s) {
+        if let Some(cap) = BOT_REGEX.captures(s) {
             Ok(Self {
                 id: cap[1].parse().unwrap(),
                 low: cap[2].parse().unwrap(),
