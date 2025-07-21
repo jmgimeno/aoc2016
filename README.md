@@ -9,3 +9,4 @@
 - Day 7: Internet Protocol Version 7
 - Day 8: Two-Factor Authentication
 - Day 9: Explosives in Cyberspace
+- Day 10: Balance Bots
