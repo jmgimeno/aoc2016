@@ -234,6 +234,7 @@ name = "day10"
 version = "0.1.0"
 dependencies = [
  "common",
+ "once_cell",
  "regex",
 ]
 

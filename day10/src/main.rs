@@ -2,21 +2,38 @@ use regex::Regex;
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
+use once_cell::sync::Lazy;
+
+static PARSED_INPUT: Lazy<(Vec<Bot>, Vec<Move>)> = Lazy::new(|| {
+    let input = common::read_file_as_lines("data/day10.txt").unwrap();
+    parse_input(&input)
+});
 
 fn main() {
-    let input = common::read_file_as_lines("data/day10.txt").unwrap();
-    let (bots, moves) = parse_input(&input);
-    let mut factory  = Factory::new(&bots);
-    part1(&mut factory, &moves);
+    let mut factory  = Factory::new(&PARSED_INPUT.0);
+    let part1 = part1(&mut factory, &PARSED_INPUT.1, 17, 61);
+    println!("Part 1: {:?}", part1.unwrap());
+    println!("Part 2; {:?}", part2(&factory));
 }
 
-fn part1(factory: &mut Factory, moves: &[Move]) {
+fn part1(factory: &mut Factory, moves: &[Move], min_target: u32, max_target: u32) -> Option<u32> {
     let mut queue = VecDeque::from(moves.to_vec());
+    let mut comparer_bot = None;
     while !queue.is_empty() {
         let move_ = queue.pop_front().unwrap();
         let next = factory.step(&move_);
+        if next.len() == 2
+            && next[0].value == min_target
+            && next[1].value == max_target {
+            comparer_bot = Some(move_.bot);
+        }
         queue.extend(next.into_iter());
     }
+    comparer_bot
+}
+
+fn part2(factory: &Factory) -> u32 {
+    factory.output[&0] * factory.output[&1] * factory.output[&2]
 }
 
 struct Factory {
@@ -39,43 +56,34 @@ impl Factory {
         let held = &self.holding[bot_id];
         match held {
             None => {
-                println!("value {} goes to {}", value, bot_id);
                 self.holding.insert(*bot_id, Some(*value));
                 Vec::new()
             }
             Some(other) => {
                 let min = min(*value, *other);
                 let max = max(*value, *other);
-                println!("bot {} will compare {} with {}", bot_id, min, max);
-                if min == 17 && max == 61 {
-                    println!("Solution found {}", bot_id);
-                }
                 self.holding.insert(*bot_id, None);
                 let Bot { id: _, low, high } = self.bots[bot_id];
                 let mut moves = Vec::new();
                 match low {
                     Receiver::Bot(output_id) => {
-                        println!("bot {} gives low to {}", bot_id, output_id);
                         moves.push(Move {
                             value: min,
                             bot: output_id,
                         });
                     }
                     Receiver::Output(output_id) => {
-                        println!("bot {} gives low to output {}", bot_id, output_id);
                         self.output.insert(output_id, min);
                     }
                 }
                 match high {
                     Receiver::Bot(output_id) => {
-                        println!("bot {} gives high to {}", bot_id, output_id);
                         moves.push(Move {
                             value: max,
                             bot: output_id,
                         });
                     }
                     Receiver::Output(output_id) => {
-                        println!("bot {} gives high to output {}", bot_id, output_id);
                         self.output.insert(output_id, max);
                     }
                 }
@@ -184,9 +192,18 @@ mod tests {
         ];
         let (bots, moves) = parse_input(&input);
         let mut factory = Factory::new(&bots);
-        part1(&mut factory, &moves);
+        let part1 = part1(&mut factory, &moves, 2, 5);
         assert_eq!(factory.output[&0], 5);
         assert_eq!(factory.output[&1], 2);
         assert_eq!(factory.output[&2], 3);
+        assert_eq!(part1, Some(2));
+    }
+
+    #[test]
+    fn test_parts() {
+        let mut factory = Factory::new(&PARSED_INPUT.0);
+        let part1 = part1(&mut factory, &PARSED_INPUT.1, 17, 61);
+        assert_eq!(part1, Some(98));
+        assert_eq!(part2(&factory), 4042);
     }
 }
