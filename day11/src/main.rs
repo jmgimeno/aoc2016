@@ -1,23 +1,95 @@
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use tinybitset::TinyBitSet;
 
 // In both the example and the input, 8 bits are enough
 type Set = TinyBitSet<u8, 1>;
 
-fn main() {
+static PART1: Lazy<Configuration> = Lazy::new(|| Configuration {
+    // promethium = 2^0 = 1
+    // cobalt     = 2^1 = 2
+    // curium     = 2^2 = 4
+    // ruthenium  = 2^3 = 8
+    // plutonium  = 2^4 = 16
+    elevator: 0, // floor 1
+    floors: [
+        Group {
+            // floor 1
+            microchips: Set::from([1]),
+            generators: Set::from([1]),
+        },
+        Group {
+            // floor 2
+            microchips: Set::new(),
+            generators: Set::from([30]),
+        },
+        Group {
+            // floor 3
+            microchips: Set::from([30]),
+            generators: Set::new(),
+        },
+        Group {
+            // floor 4
+            microchips: Set::new(),
+            generators: Set::new(),
+        },
+    ],
+});
 
+static PART2: Lazy<Configuration> = Lazy::new(|| Configuration {
+    // promethium = 2^0 = 1
+    // cobalt     = 2^1 = 2
+    // curium     = 2^2 = 4
+    // ruthenium  = 2^3 = 8
+    // plutonium  = 2^4 = 16
+    // elerium    = 2^5 = 32
+    // dilithium  = 2^6 = 64
+    elevator: 0, // floor 1
+    floors: [
+        Group {
+            // floor 1
+            microchips: Set::from([97]),
+            generators: Set::from([97]),
+        },
+        Group {
+            // floor 2
+            microchips: Set::new(),
+            generators: Set::from([30]),
+        },
+        Group {
+            // floor 3
+            microchips: Set::from([30]),
+            generators: Set::new(),
+        },
+        Group {
+            // floor 4
+            microchips: Set::new(),
+            generators: Set::new(),
+        },
+    ],
+});
+
+fn main() {
+    println!("Part 1: {}", part(&PART1));
+    println!("Part 2: {}", part(&PART2));
 }
 
-fn part1(initial: &Configuration) -> usize {
+fn part(initial: &Configuration) -> usize {
+    let mut visited = HashSet::new();
     let mut queue = VecDeque::new();
     queue.push_back((0, *initial));
+    visited.insert(*initial);
     while let Some((depth, configuration)) = queue.pop_front() {
-        if configuration.is_solution() {
-            return depth;
+        let expanded = configuration.expand();
+        for configuration in expanded {
+            if configuration.is_solution() {
+                return depth + 1;
+            } else if !visited.contains(&configuration) {
+                queue.push_back((depth + 1, configuration));
+                visited.insert(configuration);
+            }
         }
-        queue.extend(configuration.expand().into_iter().map(|c| (depth + 1, c)));
     }
     unreachable!()
 }
@@ -28,7 +100,7 @@ enum Direction {
     Down,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct Group {
     microchips: Set,
     generators: Set,
@@ -99,7 +171,7 @@ struct Movemement {
     group: Group,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct Configuration {
     elevator: usize,
     floors: [Group; 4],
@@ -236,6 +308,16 @@ mod tests {
     fn test_example_initial() {
         assert!(EXAMPLE.is_valid());
         assert!(!EXAMPLE.is_solution());
-        assert_eq!(part1(&EXAMPLE), 11);
+        assert_eq!(part(&EXAMPLE), 11);
+    }
+
+    #[test]
+    fn test_part1() {
+        assert_eq!(part(&PART1), 33);
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(part(&PART2), 57);
     }
 }
