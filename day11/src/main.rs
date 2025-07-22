@@ -12,7 +12,7 @@ static PART1: Lazy<Configuration> = Lazy::new(|| {
 });
 
 static PART2: Lazy<Configuration> = Lazy::new(|| {
-    // The input has only 5 different enerators and microchips
+    // The input has only 5 different generators and microchips
     let mut part2 = PART1.clone();
     part2.floors[0].generators.insert(6);
     part2.floors[0].generators.insert(7);
@@ -124,7 +124,7 @@ impl Group {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Movemement {
+struct Step {
     direction: Direction,
     group: Group,
 }
@@ -144,72 +144,59 @@ impl Configuration {
         self.floors.iter().all(|floor| floor.is_valid())
     }
 
-    fn valid_directions(&self) -> Vec<Direction> {
-        let mut directions = Vec::new();
-        if self.elevator > 0 {
-            directions.push(Direction::Down);
-        }
-        if self.elevator < 3 {
-            directions.push(Direction::Up);
-        }
-        directions
+    fn valid_directions(&self) -> impl Iterator<Item = Direction> {
+        [Some(Direction::Down), Some(Direction::Up)]
+            .into_iter()
+            .enumerate()
+            .filter_map(move |(i, dir)| match i {
+                0 if self.elevator > 0 => dir,
+                1 if self.elevator < 3 => dir,
+                _ => None,
+            })
     }
 
-    fn valid_groups(&self) -> Vec<Group> {
+    fn valid_groups(&self) -> impl Iterator<Item = Group> + '_ {
         let floor = self.floors[self.elevator];
-        let mut new_groups = Vec::new();
-        // A single microchip is valid
-        new_groups.extend(floor.microchips.iter().map(|m| Group::new_one_microchip(m)));
-        // A single generator is valid
-        new_groups.extend(floor.generators.iter().map(|g| Group::new_one_generator(g)));
-        // A pair of microchips are valid as well
-        new_groups.extend(
+        itertools::chain!(
+            floor.microchips.iter().map(Group::new_one_microchip),
+            floor.generators.iter().map(Group::new_one_generator),
             floor
                 .microchips
                 .iter()
                 .tuple_combinations()
-                .map(|c: (usize, usize)| Group::new_two_microchips(c.0, c.1)),
-        );
-        // A pair of generators are also valid
-        new_groups.extend(
+                .map(|(m1, m2)| Group::new_two_microchips(m1, m2)),
             floor
                 .generators
                 .iter()
                 .tuple_combinations()
-                .map(|c: (usize, usize)| Group::new_two_generators(c.0, c.1)),
-        );
-        // A microchip only can travel with its generator
-        new_groups.extend(
+                .map(|(g1, g2)| Group::new_two_generators(g1, g2)),
             (floor.microchips & floor.generators)
                 .iter()
-                .map(|mg| Group::new_both(mg)),
-        );
-        new_groups
+                .map(Group::new_both)
+        )
     }
 
-    fn possible_moves(&self) -> Vec<Movemement> {
-        let mut moves = Vec::new();
-        for direction in self.valid_directions() {
-            for group in self.valid_groups() {
-                moves.push(Movemement { direction, group });
-            }
-        }
-        moves
+    fn possible_steps(&self) -> impl Iterator<Item = Step> {
+        self.valid_directions()
+            .flat_map(move |direction| {
+                self.valid_groups()
+                    .map(move |group| Step { direction, group })
+            })
     }
 
-    fn next(&self, movement: Movemement) -> Self {
+    fn next(&self, step: Step) -> Self {
         let mut new_floors = self.floors.clone();
-        new_floors[self.elevator] = new_floors[self.elevator].remove(movement.group);
-        match movement.direction {
+        new_floors[self.elevator] = new_floors[self.elevator].remove(step.group);
+        match step.direction {
             Direction::Up => {
-                new_floors[self.elevator + 1] = new_floors[self.elevator + 1].add(movement.group);
+                new_floors[self.elevator + 1] = new_floors[self.elevator + 1].add(step.group);
                 Self {
                     elevator: self.elevator + 1,
                     floors: new_floors,
                 }
             }
             Direction::Down => {
-                new_floors[self.elevator - 1] = new_floors[self.elevator - 1].add(movement.group);
+                new_floors[self.elevator - 1] = new_floors[self.elevator - 1].add(step.group);
                 Self {
                     elevator: self.elevator - 1,
                     floors: new_floors,
@@ -219,14 +206,10 @@ impl Configuration {
     }
 
     fn expand(&self) -> Vec<Self> {
-        let mut moves = Vec::new();
-        for movement in self.possible_moves() {
-            let next = self.next(movement);
-            if next.is_valid() {
-                moves.push(self.next(movement));
-            }
-        }
-        moves
+        self.possible_steps()
+            .map(|step| self.next(step))
+            .filter(|configuration| configuration.is_valid())
+            .collect()
     }
 }
 
