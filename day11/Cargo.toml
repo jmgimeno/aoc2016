@@ -7,5 +7,6 @@ edition = "2024"
 common = { path = "../common" }
 itertools = "0.14.0"
 once_cell = "1.21.3"
+regex = "1.11.1"
 tinybitset = "0.0.2"
 

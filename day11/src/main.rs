@@ -1,73 +1,24 @@
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use tinybitset::TinyBitSet;
 
 // In both the example and the input, 8 bits are enough
 type Set = TinyBitSet<u8, 1>;
 
-static PART1: Lazy<Configuration> = Lazy::new(|| Configuration {
-    // promethium = 2^0 = 1
-    // cobalt     = 2^1 = 2
-    // curium     = 2^2 = 4
-    // ruthenium  = 2^3 = 8
-    // plutonium  = 2^4 = 16
-    elevator: 0, // floor 1
-    floors: [
-        Group {
-            // floor 1
-            microchips: Set::from([1]),
-            generators: Set::from([1]),
-        },
-        Group {
-            // floor 2
-            microchips: Set::new(),
-            generators: Set::from([30]),
-        },
-        Group {
-            // floor 3
-            microchips: Set::from([30]),
-            generators: Set::new(),
-        },
-        Group {
-            // floor 4
-            microchips: Set::new(),
-            generators: Set::new(),
-        },
-    ],
+static PART1: Lazy<Configuration> = Lazy::new(|| {
+    let input = common::read_file_as_lines("data/day11.txt").unwrap();
+    parse_input(&input)
 });
 
-static PART2: Lazy<Configuration> = Lazy::new(|| Configuration {
-    // promethium = 2^0 = 1
-    // cobalt     = 2^1 = 2
-    // curium     = 2^2 = 4
-    // ruthenium  = 2^3 = 8
-    // plutonium  = 2^4 = 16
-    // elerium    = 2^5 = 32
-    // dilithium  = 2^6 = 64
-    elevator: 0, // floor 1
-    floors: [
-        Group {
-            // floor 1
-            microchips: Set::from([97]),
-            generators: Set::from([97]),
-        },
-        Group {
-            // floor 2
-            microchips: Set::new(),
-            generators: Set::from([30]),
-        },
-        Group {
-            // floor 3
-            microchips: Set::from([30]),
-            generators: Set::new(),
-        },
-        Group {
-            // floor 4
-            microchips: Set::new(),
-            generators: Set::new(),
-        },
-    ],
+static PART2: Lazy<Configuration> = Lazy::new(|| {
+    // The input has only 5 different enerators and microchips
+    let mut part2 = PART1.clone();
+    part2.floors[0].generators.insert(6);
+    part2.floors[0].generators.insert(7);
+    part2.floors[0].microchips.insert(6);
+    part2.floors[0].microchips.insert(7);
+    part2
 });
 
 fn main() {
@@ -107,6 +58,13 @@ struct Group {
 }
 
 impl Group {
+    fn new() -> Self {
+        Self {
+            microchips: Set::new(),
+            generators: Set::new(),
+        }
+    }
+
     fn new_one_microchip(m: usize) -> Self {
         Self {
             microchips: Set::singleton(m),
@@ -272,43 +230,43 @@ impl Configuration {
     }
 }
 
+fn parse_input<T: AsRef<str>>(input: &[T]) -> Configuration {
+    let mut names = HashMap::new();
+    let mut floors = [Group::new(); 4];
+    for (i, line) in input.iter().enumerate() {
+        let microchip_regex = regex::Regex::new(r"(\w+)-compatible microchip").unwrap();
+        let generator_regex = regex::Regex::new(r"(\w+) generator").unwrap();
+        for microchip in microchip_regex.captures_iter(line.as_ref()) {
+            let name = microchip[1].to_string();
+            let num_names = names.len();
+            let id = names.entry(name).or_insert_with(|| num_names);
+            floors[i].microchips.insert(*id);
+        }
+        for generator in generator_regex.captures_iter(line.as_ref()) {
+            let name = generator[1].to_string();
+            let num_names = names.len();
+            let id = names.entry(name).or_insert_with(|| num_names);
+            floors[i].generators.insert(*id);
+        }
+    }
+    Configuration {
+        elevator: 0,
+        floors,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    static EXAMPLE: Lazy<Configuration> = Lazy::new(|| Configuration {
-        // hidrogen = 2^0 = 1
-        // lithium  = 2^1 = 2
-        elevator: 0, // floor 1
-        floors: [
-            Group {
-                // floor 1
-                microchips: Set::from([3]),
-                generators: Set::new(),
-            },
-            Group {
-                // floor 2
-                microchips: Set::new(),
-                generators: Set::from([1]),
-            },
-            Group {
-                // floor 3
-                microchips: Set::new(),
-                generators: Set::from([2]),
-            },
-            Group {
-                // floor 4
-                microchips: Set::new(),
-                generators: Set::new(),
-            },
-        ],
-    });
-
     #[test]
-    fn test_example_initial() {
-        assert!(EXAMPLE.is_valid());
-        assert!(!EXAMPLE.is_solution());
-        assert_eq!(part(&EXAMPLE), 11);
+    fn test_example_part1() {
+        let example = vec![
+            "The first floor contains a hydrogen-compatible microchip and a lithium-compatible microchip.",
+            "The second floor contains a hydrogen generator.",
+            "The third floor contains a lithium generator.",
+            "The fourth floor contains nothing relevant.",
+        ];
+        assert_eq!(part(&parse_input(&example)), 11);
     }
 
     #[test]

@@ -251,6 +251,7 @@ dependencies = [
  "common",
  "itertools",
  "once_cell",
+ "regex",
  "tinybitset",
 ]
 
