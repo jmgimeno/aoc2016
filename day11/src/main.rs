@@ -51,52 +51,17 @@ enum Direction {
     Down,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
 struct Group {
     microchips: Set,
     generators: Set,
 }
 
 impl Group {
-    fn new() -> Self {
+    fn new(microchips: Set, generators: Set) -> Self {
         Self {
-            microchips: Set::new(),
-            generators: Set::new(),
-        }
-    }
-
-    fn new_one_microchip(m: usize) -> Self {
-        Self {
-            microchips: Set::singleton(m),
-            generators: Set::new(),
-        }
-    }
-
-    fn new_one_generator(g: usize) -> Self {
-        Self {
-            microchips: Set::new(),
-            generators: Set::singleton(g),
-        }
-    }
-
-    fn new_two_microchips(m1: usize, m2: usize) -> Self {
-        Self {
-            microchips: Set::singleton(m1) | Set::singleton(m2),
-            generators: Set::new(),
-        }
-    }
-
-    fn new_two_generators(g1: usize, g2: usize) -> Self {
-        Self {
-            microchips: Set::new(),
-            generators: Set::singleton(g1) | Set::singleton(g2),
-        }
-    }
-
-    fn new_both(mg: usize) -> Self {
-        Self {
-            microchips: Set::singleton(mg),
-            generators: Set::singleton(mg),
+            microchips,
+            generators,
         }
     }
 
@@ -123,12 +88,6 @@ impl Group {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct Step {
-    direction: Direction,
-    group: Group,
-}
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct Configuration {
     elevator: usize,
@@ -138,10 +97,6 @@ struct Configuration {
 impl Configuration {
     fn is_solution(&self) -> bool {
         self.elevator == 3 && (0..3).all(|i| self.floors[i].is_empty())
-    }
-
-    fn is_valid(&self) -> bool {
-        self.floors.iter().all(|floor| floor.is_valid())
     }
 
     fn valid_directions(&self) -> impl Iterator<Item = Direction> {
@@ -158,64 +113,55 @@ impl Configuration {
     fn valid_groups(&self) -> impl Iterator<Item = Group> + '_ {
         let floor = self.floors[self.elevator];
         itertools::chain!(
-            floor.microchips.iter().map(Group::new_one_microchip),
-            floor.generators.iter().map(Group::new_one_generator),
+            floor.microchips.iter().map(|m| Group::new(Set::singleton(m), Set::new())),
+            floor.generators.iter().map(|g| Group::new(Set::new(), Set::singleton(g))),
             floor
                 .microchips
                 .iter()
                 .tuple_combinations()
-                .map(|(m1, m2)| Group::new_two_microchips(m1, m2)),
+                .map(|(m1, m2)| Group::new(Set::singleton(m1) | Set::singleton(m2), Set::new())),
             floor
                 .generators
                 .iter()
                 .tuple_combinations()
-                .map(|(g1, g2)| Group::new_two_generators(g1, g2)),
+                .map(|(g1, g2)| Group::new(Set::new(), Set::singleton(g1) | Set::singleton(g2))),
             (floor.microchips & floor.generators)
                 .iter()
-                .map(Group::new_both)
+                .map(|mg| Group::new(Set::singleton(mg), Set::singleton(mg)))
         )
     }
 
-    fn possible_steps(&self) -> impl Iterator<Item = Step> {
-        self.valid_directions()
-            .flat_map(move |direction| {
-                self.valid_groups()
-                    .map(move |group| Step { direction, group })
-            })
-    }
-
-    fn next(&self, step: Step) -> Self {
-        let mut new_floors = self.floors.clone();
-        new_floors[self.elevator] = new_floors[self.elevator].remove(step.group);
-        match step.direction {
-            Direction::Up => {
-                new_floors[self.elevator + 1] = new_floors[self.elevator + 1].add(step.group);
-                Self {
-                    elevator: self.elevator + 1,
+    fn expand(&self) -> Vec<Self> {
+        let mut configurations = Vec::new();
+        let current_floor = self.elevator;
+        let current_group = &self.floors[current_floor];
+        for group in self.valid_groups() {
+            let new_current_group = current_group.remove(group);
+            if !new_current_group.is_valid() { continue; }
+            for direction in self.valid_directions() {
+                let new_floor = match direction {
+                    Direction::Up => current_floor + 1,
+                    Direction::Down => current_floor - 1,
+                };
+                let new_floor_group = &self.floors[new_floor];
+                let new_floor_grup = new_floor_group.add(group);
+                if !new_floor_grup.is_valid() { continue; }
+                let mut new_floors = self.floors;
+                new_floors[current_floor] = new_current_group;
+                new_floors[new_floor] = new_floor_grup;
+                configurations.push(Self {
+                    elevator: new_floor,
                     floors: new_floors,
-                }
-            }
-            Direction::Down => {
-                new_floors[self.elevator - 1] = new_floors[self.elevator - 1].add(step.group);
-                Self {
-                    elevator: self.elevator - 1,
-                    floors: new_floors,
-                }
+                });
             }
         }
-    }
-
-    fn expand(&self) -> Vec<Self> {
-        self.possible_steps()
-            .map(|step| self.next(step))
-            .filter(|configuration| configuration.is_valid())
-            .collect()
+        configurations
     }
 }
 
 fn parse_input<T: AsRef<str>>(input: &[T]) -> Configuration {
     let mut names = HashMap::new();
-    let mut floors = [Group::new(); 4];
+    let mut floors = [Group::default(); 4];
     for (i, line) in input.iter().enumerate() {
         let microchip_regex = regex::Regex::new(r"(\w+)-compatible microchip").unwrap();
         let generator_regex = regex::Regex::new(r"(\w+) generator").unwrap();
