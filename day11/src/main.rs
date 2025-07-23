@@ -46,7 +46,7 @@ fn part(initial: &Configuration) -> usize {
     unreachable!()
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum Direction {
     Up,
     Down,
@@ -100,22 +100,17 @@ impl Configuration {
         self.elevator == 3 && (0..3).all(|i| self.floors[i].is_empty())
     }
 
-    fn valid_directions(&self) -> impl Iterator<Item = Direction> {
-        [Some(Direction::Down), Some(Direction::Up)]
-            .into_iter()
-            .enumerate()
-            .filter_map(move |(i, dir)| match i {
-                0 if self.elevator > 0 => dir,
-                1 if self.elevator < 3 => dir,
-                _ => None,
-            })
-    }
-
     fn valid_groups(&self) -> impl Iterator<Item = Group> + '_ {
         let floor = self.floors[self.elevator];
         itertools::chain!(
-            floor.microchips.iter().map(|m| Group::new(Set::singleton(m), Set::new())),
-            floor.generators.iter().map(|g| Group::new(Set::new(), Set::singleton(g))),
+            floor
+                .microchips
+                .iter()
+                .map(|m| Group::new(Set::singleton(m), Set::new())),
+            floor
+                .generators
+                .iter()
+                .map(|g| Group::new(Set::new(), Set::singleton(g))),
             floor
                 .microchips
                 .iter()
@@ -138,15 +133,31 @@ impl Configuration {
         let current_group = &self.floors[current_floor];
         for group in self.valid_groups() {
             let new_current_group = current_group.remove(group);
-            if !new_current_group.is_valid() { continue; }
-            for direction in self.valid_directions() {
+            if !new_current_group.is_valid() {
+                continue;
+            }
+            for direction in [Direction::Up, Direction::Down] {
                 let new_floor = match direction {
-                    Direction::Up => current_floor + 1,
-                    Direction::Down => current_floor - 1,
+                    Direction::Up => {
+                        if current_floor == 3 {
+                            continue;
+                        }
+                        current_floor + 1
+                    }
+                    Direction::Down => {
+                        if current_floor == 0
+                            || self.floors[..current_floor].iter().all(|f| f.is_empty())
+                        {
+                            continue;
+                        }
+                        current_floor - 1
+                    }
                 };
                 let new_floor_group = &self.floors[new_floor];
                 let new_floor_grup = new_floor_group.add(group);
-                if !new_floor_grup.is_valid() { continue; }
+                if !new_floor_grup.is_valid() {
+                    continue;
+                }
                 let mut new_floors = self.floors;
                 new_floors[current_floor] = new_current_group;
                 new_floors[new_floor] = new_floor_grup;
