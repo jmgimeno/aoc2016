@@ -30,15 +30,16 @@ fn part(initial: &Configuration) -> usize {
     let mut visited = HashSet::new();
     let mut queue = VecDeque::new();
     queue.push_back((0, *initial));
-    visited.insert(*initial);
+    visited.insert(initial.normalize());
     while let Some((depth, configuration)) = queue.pop_front() {
         let expanded = configuration.expand();
         for configuration in expanded {
+            let normalized = configuration.normalize();
             if configuration.is_solution() {
                 return depth + 1;
-            } else if !visited.contains(&configuration) {
+            } else if !visited.contains(&normalized) {
                 queue.push_back((depth + 1, configuration));
-                visited.insert(configuration);
+                visited.insert(normalized);
             }
         }
     }
@@ -156,6 +157,26 @@ impl Configuration {
             }
         }
         configurations
+    }
+
+    fn normalize(&self) -> (usize, Vec<(usize, usize)>) {
+        // - For each possible element ID (0 to 7), it finds the floor index where
+        // its microchip and generator are located.
+        // - It collects these pairs (chip_floor, gen_floor) into a vector.
+        // - The vector is sorted to ensure that states with the same arrangement
+        // but different orderings are treated as equal.
+        // - It returns a tuple: the elevator position and the sorted vector of pairs.
+        // Thanks copilot :-D !!!
+        let mut pairs = Vec::new();
+        for id in 0..8 {
+            let chip_floor = self.floors.iter().position(|g| g.microchips[id]);
+            let gen_floor = self.floors.iter().position(|g| g.generators[id]);
+            if let (Some(c), Some(g)) = (chip_floor, gen_floor) {
+                pairs.push((c, g));
+            }
+        }
+        pairs.sort_unstable();
+        (self.elevator, pairs)
     }
 }
 
