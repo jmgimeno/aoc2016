@@ -1,6 +1,6 @@
-use std::str::from_utf8;
 use md5::{Digest, Md5};
 use once_cell::sync::Lazy;
+use std::str::from_utf8;
 
 static SALT: Lazy<String> = Lazy::new(|| common::read_file_as_string("data/day14.txt").unwrap());
 
@@ -46,21 +46,23 @@ where
     F: Fn(&[u8]) -> [u8; 16],
 {
     fn new(salt: &String, f: F) -> Self {
-        Self { salt: salt.clone() , f , cached: Vec::new()}
+        Self {
+            salt: salt.clone(),
+            f,
+            cached: Vec::new(),
+        }
     }
 
-    fn apply(&mut self, suffix: usize) -> CacheEntry {
-        if suffix < self.cached.len() {
-            return self.cached[suffix].clone();
+    fn apply(&mut self, suffix: usize) -> &CacheEntry {
+        if suffix >= self.cached.len() {
+            let result = (self.f)(format!("{}{}", self.salt, suffix).as_bytes());
+            let entry = CacheEntry::new(&result);
+            self.cached.push(entry);
         }
-        let result = (self.f)(format!("{}{}", self.salt, suffix).as_bytes());
-        let entry = CacheEntry::new(&result);
-        self.cached.push(entry.clone());
-        entry
+        &self.cached[suffix]
     }
 }
 
-#[derive(Clone)]
 struct CacheEntry {
     first_triplet: Option<u8>,
     quintuplets: Vec<u8>,
@@ -114,7 +116,8 @@ where
     fn find_index(&mut self, from: usize) -> usize {
         let mut suffix = from;
         loop {
-            if let CacheEntry { first_triplet:  Some(byte), .. } = self.cache.apply(suffix) {
+            let first_triplet = self.cache.apply(suffix).first_triplet;
+            if let Some(byte) = first_triplet {
                 if self.five_in_a_row_in_next_thousand(suffix + 1, byte) {
                     return suffix;
                 }
@@ -125,7 +128,7 @@ where
 
     fn five_in_a_row_in_next_thousand(&mut self, from: usize, byte: u8) -> bool {
         for i in from..from + 1000 {
-            let CacheEntry { quintuplets, .. } = self.cache.apply(i);
+            let quintuplets = &self.cache.apply(i).quintuplets;
             if quintuplets.contains(&byte) {
                 return true;
             }
