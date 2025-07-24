@@ -38,7 +38,7 @@ where
 {
     salt: String,
     f: F,
-    cached: Vec<[u8; 16]>,
+    cached: Vec<CacheEntry>,
 }
 
 impl<F> Cache<F>
@@ -49,13 +49,50 @@ where
         Self { salt: salt.clone() , f , cached: Vec::new()}
     }
 
-    fn apply(&mut self, suffix: usize) -> [u8; 16] {
+    fn apply(&mut self, suffix: usize) -> CacheEntry {
         if suffix < self.cached.len() {
-            return self.cached[suffix];
+            return self.cached[suffix].clone();
         }
         let result = (self.f)(format!("{}{}", self.salt, suffix).as_bytes());
-        self.cached.push(result);
-        result
+        let entry = CacheEntry::new(&result);
+        self.cached.push(entry.clone());
+        entry
+    }
+}
+
+#[derive(Clone)]
+struct CacheEntry {
+    first_triplet: Option<u8>,
+    quintuplets: Vec<u8>,
+}
+
+impl CacheEntry {
+    fn new(hash: &[u8]) -> Self {
+        let mut first_triplet = None;
+        let mut quintuplets = Vec::new();
+        let mut prev = None;
+        let mut count = 1;
+        for &byte in hash {
+            for &nibble in &[byte >> 4, byte & 0x0F] {
+                if Some(nibble) == prev {
+                    count += 1;
+                    if count == 3 && first_triplet.is_none() {
+                        first_triplet = Some(nibble);
+                    }
+                    if count == 5 {
+                        quintuplets.push(nibble);
+                    }
+                } else {
+                    prev = Some(nibble);
+                    count = 1;
+                }
+            }
+        }
+
+        Self {
+            first_triplet,
+            quintuplets,
+        }
     }
 }
 
@@ -77,8 +114,7 @@ where
     fn find_index(&mut self, from: usize) -> usize {
         let mut suffix = from;
         loop {
-            let hash: [u8; 16] = self.cache.apply(suffix);
-            if let Some(byte) = three_in_a_row(&hash) {
+            if let CacheEntry { first_triplet:  Some(byte), .. } = self.cache.apply(suffix) {
                 if self.five_in_a_row_in_next_thousand(suffix + 1, byte) {
                     return suffix;
                 }
@@ -89,54 +125,13 @@ where
 
     fn five_in_a_row_in_next_thousand(&mut self, from: usize, byte: u8) -> bool {
         for i in from..from + 1000 {
-            let hash: [u8; 16] = self.cache.apply(i);
-            if five_in_a_row(&hash, byte) {
+            let CacheEntry { quintuplets, .. } = self.cache.apply(i);
+            if quintuplets.contains(&byte) {
                 return true;
             }
         }
         false
     }
-}
-
-
-fn three_in_a_row(hash: &[u8]) -> Option<u8> {
-    let mut prev = None;
-    let mut count = 1;
-    for &byte in hash {
-        for &nibble in &[byte >> 4, byte & 0x0F] {
-            if Some(nibble) == prev {
-                count += 1;
-                if count == 3 {
-                    return Some(nibble);
-                }
-            } else {
-                prev = Some(nibble);
-                count = 1;
-            }
-        }
-    }
-    None
-}
-
-fn five_in_a_row(hash: &[u8], target: u8) -> bool {
-    let mut prev = None;
-    let mut count = 1;
-    for &byte in hash {
-        for &nibble in &[byte >> 4, byte & 0x0F] {
-            if Some(nibble) == prev {
-                count += 1;
-                if count == 5 {
-                    if nibble == target {
-                        return true;
-                    }
-                }
-            } else {
-                prev = Some(nibble);
-                count = 1;
-            }
-        }
-    }
-    false
 }
 
 fn stretched_hash(s: &[u8]) -> [u8; 16] {
