@@ -10,57 +10,81 @@ static KEY: Lazy<u32> = Lazy::new(|| {
 
 fn main() {
     println!("Part 1: {}", part1(*KEY, &Position::new(31, 39)));
-    println!("Part 2: {}", part2(*KEY, 50));
+    println!("Part 2: {}", part2_dfs(*KEY, 50));
+    println!("Part 2: {}", part2_bfs(*KEY, 50));
 }
 
 fn part1(key: u32, target: &Position) -> usize {
     let map = Map::new(key);
-    let mut queue = VecDeque::new();
+    let start = Position::new(1, 1);
     let mut visited = HashSet::new();
-    queue.push_back((0, Position::new(1, 1)));
-    visited.insert(Position::new(0, 0));
+    let mut queue = VecDeque::new();
+
+    visited.insert(start);
+    queue.push_back((0, start));
+
     while let Some((depth, current)) = queue.pop_front() {
         for next in map.expand(&current) {
             if &next == target {
                 return depth + 1;
             }
-            if !visited.contains(&next) {
+            if visited.insert(next) {
                 queue.push_back((depth + 1, next));
-                visited.insert(next);
             }
         }
     }
     unreachable!("Solution not found");
 }
 
-fn part2(key: u32, max_steps: usize) -> usize {
+fn part2_dfs(key: u32, max_steps: usize) -> usize {
     let map = Map::new(key);
     let start = Position::new(1, 1);
     let mut visited = HashSet::new();
     visited.insert(start);
     let mut total_visited = visited.clone();
-    find(&map, max_steps, start, &mut visited, &mut total_visited);
+    dfs(&map, max_steps, start, &mut visited, &mut total_visited);
     total_visited.len()
 }
 
-fn find(
+fn dfs(
     map: &Map,
     max_steps: usize,
     current: Position,
     visited_in_path: &mut HashSet<Position>,
     total_visited: &mut HashSet<Position>,
 ) {
-    if max_steps == 0 {
-        return;
-    }
-    for next in map.expand(&current) {
-        if !visited_in_path.contains(&next) {
-            total_visited.insert(next);
-            visited_in_path.insert(next);
-            find(map, max_steps - 1, next, visited_in_path, total_visited);
-            visited_in_path.remove(&next);
+    if max_steps > 0 {
+        for next in map.expand(&current) {
+            if !visited_in_path.contains(&next) {
+                total_visited.insert(next);
+                visited_in_path.insert(next);
+                dfs(map, max_steps - 1, next, visited_in_path, total_visited);
+                visited_in_path.remove(&next);
+            }
         }
     }
+}
+
+fn part2_bfs(key: u32, max_steps: usize) -> usize {
+    let map = Map::new(key);
+    let start = Position::new(1, 1);
+    let mut visited = HashSet::new();
+    let mut queue = VecDeque::new();
+
+    visited.insert(start);
+    queue.push_back((0, start));
+
+    while let Some((depth, current)) = queue.pop_front() {
+        if depth == max_steps {
+            continue;
+        }
+        for next in map.expand(&current) {
+            if visited.insert(next) {
+                queue.push_back((depth + 1, next));
+            }
+        }
+    }
+    visited.len()
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -141,7 +165,12 @@ mod tests {
     }
 
     #[test]
-    fn test_part2() {
-        assert_eq!(part2(*KEY, 50), 138);
+    fn test_part2_dfs() {
+        assert_eq!(part2_dfs(*KEY, 50), 138);
+    }
+
+    #[test]
+    fn test_part2_bfs() {
+        assert_eq!(part2_bfs(*KEY, 50), 138);
     }
 }
