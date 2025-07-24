@@ -16,9 +16,9 @@ fn main() {
 fn part1(key: u32, target: &Position) -> usize {
     let map = Map::new(key);
     let mut queue = VecDeque::new();
-    let mut visited = Vec::new();
+    let mut visited = HashSet::new();
     queue.push_back((0, Position::new(1, 1)));
-    visited.push(Position::new(0, 0));
+    visited.insert(Position::new(0, 0));
     while let Some((depth, current)) = queue.pop_front() {
         for next in map.expand(&current) {
             if &next == target {
@@ -26,7 +26,7 @@ fn part1(key: u32, target: &Position) -> usize {
             }
             if !visited.contains(&next) {
                 queue.push_back((depth + 1, next));
-                visited.push(next);
+                visited.insert(next);
             }
         }
     }
