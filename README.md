@@ -13,3 +13,4 @@
 - Day 11: Radioisotope Thermoelectric Generators
 - Day 12: Leonardo's Monorail
 - Day 13: A Maze of Twisty Little Cubicles
+- Day 14: One-Time Pad
