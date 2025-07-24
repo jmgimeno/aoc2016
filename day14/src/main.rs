@@ -1,6 +1,7 @@
 use md5::{Digest, Md5};
 use once_cell::sync::Lazy;
 use std::str::from_utf8;
+use tinybitset::TinyBitSet;
 
 static SALT: Lazy<String> = Lazy::new(|| common::read_file_as_string("data/day14.txt").unwrap());
 
@@ -65,13 +66,13 @@ where
 
 struct CacheEntry {
     first_triplet: Option<u8>,
-    quintuplets: Vec<u8>,
+    quintuplets: TinyBitSet<u16, 1>,
 }
 
 impl CacheEntry {
     fn new(hash: &[u8]) -> Self {
         let mut first_triplet = None;
-        let mut quintuplets = Vec::new();
+        let mut quintuplets = TinyBitSet::new();
         let mut prev = None;
         let mut count = 1;
         for &byte in hash {
@@ -82,7 +83,7 @@ impl CacheEntry {
                         first_triplet = Some(nibble);
                     }
                     if count == 5 {
-                        quintuplets.push(nibble);
+                        quintuplets.insert(nibble as usize);
                     }
                 } else {
                     prev = Some(nibble);
@@ -129,7 +130,7 @@ where
     fn five_in_a_row_in_next_thousand(&mut self, from: usize, byte: u8) -> bool {
         for i in from..from + 1000 {
             let quintuplets = &self.cache.apply(i).quintuplets;
-            if quintuplets.contains(&byte) {
+            if quintuplets[byte as usize] {
                 return true;
             }
         }
