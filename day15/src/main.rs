@@ -61,15 +61,18 @@ impl From<std::num::ParseIntError> for DiskParseError {
     }
 }
 
+static DISK_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^Disc #(\d+) has (\d+) positions; at time=0, it is at position (\d+).$").unwrap()
+});
+
 impl FromStr for Disk {
     type Err = DiskParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let regexp = Regex::new(r"^Disc #(\d+) has (\d+) positions; at time=0, it is at position (\d+).$")?;
-        if let Some(caps) = regexp.captures(s) {
-            let number = caps[1].parse::<u64>()?;
-            let number_of_positions = caps[2].parse::<u64>()?;
-            let position_at_zero = caps[3].parse::<u64>()?;
+        if let Some(caps) = DISK_REGEX.captures(s) {
+            let number = caps.get(1).unwrap().as_str().parse::<u64>()?;
+            let number_of_positions = caps.get(2).unwrap().as_str().parse::<u64>()?;
+            let position_at_zero = caps.get(3).unwrap().as_str().parse::<u64>()?;
             Ok(Self::new(number, number_of_positions, position_at_zero))
         } else {
             Err(DiskParseError::InvalidInput)
@@ -109,8 +112,7 @@ fn solve_two(eq1: CongruenceEquation, eq2: CongruenceEquation) -> CongruenceEqua
     let CongruenceEquation { remainder: a_1, modulus: n_1 } = eq1;
     let CongruenceEquation { remainder: a_2, modulus: n_2 } = eq2;
     let (gcd, m_1, m_2) = extended_euclidean_algorithm(n_1, n_2);
-    assert_eq!(gcd, 1);
-    assert_eq!(m_1 * n_1 as i64 + m_2 * n_2 as i64, 1);
+    assert_eq!(gcd, 1, "GCD of {} and {} is not 1", n_1, n_2);
     let x = a_1 * m_2 * n_2 as i64 + a_2 * m_1 * n_1 as i64;
     let y = n_1 * n_2;
     CongruenceEquation { remainder: x, modulus: y }
@@ -125,25 +127,17 @@ fn solve_many(eqns: &[CongruenceEquation]) -> CongruenceEquation {
 }
 
 fn extended_euclidean_algorithm(a: u64, b: u64) -> (u64, i64, i64) {
-    let mut old_r = a;
-    let mut r = b;
-    let mut old_s = 1_i64;
-    let mut s = 0_i64;
-    let mut old_t = 0_i64;
-    let mut t = 1_i64;
+    let (mut old_r, mut r) = (a as i64, b as i64);
+    let (mut old_s, mut s) = (1, 0);
+    let (mut old_t, mut t) = (0, 1);
+
     while r != 0 {
-        let quotient = old_r / r;
-        let new_r = old_r - quotient * r;
-        old_r = r;
-        r = new_r;
-        let new_s = old_s - quotient as i64 * s;
-        old_s = s;
-        s = new_s;
-        let new_t = old_t - quotient as i64 * t;
-        old_t = t;
-        t = new_t;
+        let q = old_r / r;
+        (old_r, r) = (r, old_r - q * r);
+        (old_s, s) = (s, old_s - q * s);
+        (old_t, t) = (t, old_t - q * t);
     }
-    (old_r, old_s, old_t)
+    (old_r as u64, old_s, old_t)
 }
 
 #[cfg(test)]
