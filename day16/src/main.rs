@@ -1,8 +1,6 @@
 use once_cell::sync::Lazy;
 
-static INPUT: Lazy<String> = Lazy::new(|| {
-    common::read_file_as_string("data/day16.txt").unwrap()
-});
+static INPUT: Lazy<String> = Lazy::new(|| common::read_file_as_string("data/day16.txt").unwrap());
 
 fn main() {
     println!("Part 1: {}", checksum(&INPUT, 272));
@@ -25,7 +23,11 @@ fn checksum(input: &str, length: usize) -> String {
         let mut n = size;
         while n > 1 {
             for i in 0..n / 2 {
-                buffer[i] = if buffer[2 * i] == buffer[2 * i + 1] { '1' } else { '0' };
+                buffer[i] = if buffer[2 * i] == buffer[2 * i + 1] {
+                    '1'
+                } else {
+                    '0'
+                };
             }
             n /= 2;
         }
@@ -40,7 +42,6 @@ enum Dragon {
 }
 
 impl Dragon {
-
     fn new(s: String, min_length: usize) -> Self {
         let mut new_dragon = Self::Base(s);
         while new_dragon.len() < min_length {
@@ -99,14 +100,47 @@ impl<'a> DragonCharIter<'a> for Dragon {
             Dragon::Step(d) => {
                 let left = d.iter_chars();
                 let middle = std::iter::once('0');
-                let right = d
-                    .iter_chars()
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .map(|c| if c == '0' { '1' } else { '0' });
+                let right = match &**d {
+                    Dragon::Base(s) => {
+                        Box::new(RightHalf::new(s)) as Box<dyn Iterator<Item = char>>
+                    }
+                    _ => Box::new(
+                        d.iter_chars()
+                            .map(|c| if c == '0' { '1' } else { '0' })
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .rev(),
+                    ),
+                };
                 Box::new(left.chain(middle).chain(right))
             }
+        }
+    }
+}
+
+struct RightHalf<'a> {
+    base: &'a str,
+    pos: usize,
+}
+
+impl<'a> RightHalf<'a> {
+    fn new(base: &'a str) -> Self {
+        Self {
+            base,
+            pos: base.len(),
+        }
+    }
+}
+
+impl<'a> Iterator for RightHalf<'a> {
+    type Item = char;
+    fn next(&mut self) -> Option<char> {
+        if self.pos == 0 {
+            None
+        } else {
+            self.pos -= 1;
+            let c = self.base.as_bytes()[self.pos];
+            Some(if c == b'0' { '1' } else { '0' })
         }
     }
 }
@@ -122,7 +156,7 @@ fn window_size(mut length: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{checksum, Dragon, INPUT};
+    use crate::{Dragon, INPUT, checksum};
 
     #[test]
     fn test_iteration_example1() {
