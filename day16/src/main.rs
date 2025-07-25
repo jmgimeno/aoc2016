@@ -70,15 +70,9 @@ impl<'a> Iterator for DragonIterator<'a> {
             } else {
                 // Push right, middle, left frames (in reverse order for stack)
                 let sep = if reverse_and_flip { "1" } else { "0" };
-                if reverse_and_flip {
-                    self.stack.push((s, level - 1, 0, reverse_and_flip)); // right
-                    self.stack.push((sep, 0, 0, false)); // middle
-                    self.stack.push((s, level - 1, 0, !reverse_and_flip)); // left
-                } else {
-                    self.stack.push((s, level - 1, 0, !reverse_and_flip)); // right
-                    self.stack.push((sep, 0, 0, false)); // middle
-                    self.stack.push((s, level - 1, 0, reverse_and_flip)); // left
-                }
+                self.stack.push((s, level - 1, 0, true));
+                self.stack.push((sep, 0, 0, false));
+                self.stack.push((s, level - 1, 0, false));
             }
         }
         None
@@ -117,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_iteration_example2() {
-        let d2  = DragonIterator::new("0", 1);
+        let d2 = DragonIterator::new("0", 1);
         let r2 = d2.collect::<String>();
         assert_eq!(r2, "001".to_string());
     }
