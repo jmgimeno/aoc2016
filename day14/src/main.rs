@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use md5::{Digest, Md5};
 use once_cell::sync::Lazy;
 
@@ -33,60 +34,14 @@ where
 
 const CACHE_SIZE: usize = 1001;
 
-struct Cache<F>
-where
-    F: Fn(&[u8]) -> [u8; 16],
-{
-    salt_length: usize,
-    salt_buffer: Vec<u8>,
-    f: F,
-    entries: Vec<Option<CacheEntry>>,
-    start_suffix: usize,
-}
-
-impl<F> Cache<F>
-where
-    F: Fn(&[u8]) -> [u8; 16],
-{
-    fn new(salt: &str, f: F) -> Self {
-        let mut entries = Vec::with_capacity(CACHE_SIZE);
-        entries.resize_with(CACHE_SIZE, || None);
-        Self {
-            salt_length: salt.len(),
-            salt_buffer: salt.as_bytes().to_vec(),
-            f,
-            entries,
-            start_suffix: 0,
-        }
-    }
-
-    fn apply(&mut self, suffix: usize) -> &CacheEntry {
-        if suffix < self.start_suffix {
-            panic!("Requested suffix {} is before the buffer start {}", suffix, self.start_suffix);
-        }
-        if suffix >= self.start_suffix + CACHE_SIZE {
-            let idx = self.start_suffix % CACHE_SIZE;
-            self.entries[idx] = None;
-            self.start_suffix += 1;
-        }
-        let idx = suffix % CACHE_SIZE;
-        if self.entries[idx].is_none() {
-            self.salt_buffer.truncate(self.salt_length);
-            self.salt_buffer.extend_from_slice(&suffix.to_string().as_bytes());
-            let result = (self.f)(&self.salt_buffer);
-            self.entries[idx] = Some(CacheEntry::new(&result));
-        }
-        self.entries[idx].as_ref().unwrap()
-    }
-}
-
 struct CacheEntry {
-    first_triplet: Option<u8>,
+    suffix: usize,
+    first_triplet: u8,
     quintuplets: u16,
 }
 
 impl CacheEntry {
-    fn new(hash: &[u8]) -> Self {
+    fn new(suffix: usize, hash: &[u8]) -> Option<Self> {
         let mut first_triplet = None;
         let mut quintuplets = 0_u16;
         let mut prev = None;
@@ -107,10 +62,54 @@ impl CacheEntry {
                 }
             }
         }
-
-        Self {
-            first_triplet,
+        first_triplet.map(|triplet| Self {
+            suffix,
+            first_triplet: triplet,
             quintuplets,
+        })
+    }
+}
+
+struct Cache<F>
+where
+    F: Fn(&[u8]) -> [u8; 16],
+{
+    salt_length: usize,
+    salt_buffer: Vec<u8>,
+    f: F,
+    entries: VecDeque<CacheEntry>,
+    next_suffix: usize,
+}
+
+impl<F> Cache<F>
+where
+    F: Fn(&[u8]) -> [u8; 16],
+{
+    fn new(salt: &str, f: F) -> Self {
+        Self {
+            salt_length: salt.len(),
+            salt_buffer: salt.as_bytes().to_vec(),
+            f,
+            entries: VecDeque::with_capacity(CACHE_SIZE),
+            next_suffix: 0,
+        }
+    }
+
+    // Genera y añade la siguiente entrada con tripleta
+    fn next_entry(&mut self) -> Option<&CacheEntry> {
+        loop {
+            self.salt_buffer.truncate(self.salt_length);
+            self.salt_buffer.extend_from_slice(self.next_suffix.to_string().as_bytes());
+            let result = (self.f)(&self.salt_buffer);
+            if let Some(entry) = CacheEntry::new(self.next_suffix, &result) {
+                if self.entries.len() == CACHE_SIZE {
+                    self.entries.pop_front();
+                }
+                self.entries.push_back(entry);
+                self.next_suffix += 1;
+                return self.entries.back();
+            }
+            self.next_suffix += 1;
         }
     }
 }
@@ -130,27 +129,32 @@ where
         Self { cache }
     }
 
-    fn find_index(&mut self, from: usize) -> usize {
-        let mut suffix = from;
-        loop {
-            let first_triplet = self.cache.apply(suffix).first_triplet;
-            if let Some(byte) = first_triplet {
-                if self.five_in_a_row_in_next_thousand(suffix + 1, byte) {
-                    return suffix;
+    fn find_index(&mut self, from_idx: usize) -> usize {
+        // Avanza hasta encontrar el sufijo >= from_idx
+        while self.cache.entries.front().map_or(true, |e| e.suffix < from_idx) {
+            self.cache.next_entry();
+        }
+        let mut idx = 0;
+        while let Some(entry) = self.cache.entries.get(idx) {
+            if entry.suffix < from_idx {
+                idx += 1;
+                continue;
+            }
+            let entry_suffix = entry.suffix;
+            let triplet = entry.first_triplet;
+            // Libera la referencia a entry antes de mutar la cache
+            while self.cache.entries.back().map_or(0, |e| e.suffix) < entry_suffix + 1000 {
+                self.cache.next_entry();
+            }
+            for next in self.cache.entries.iter().skip(idx + 1) {
+                if next.suffix > entry_suffix + 1000 { break; }
+                if (next.quintuplets & (1 << (triplet as u16))) != 0 {
+                    return entry_suffix;
                 }
             }
-            suffix += 1;
+            idx += 1;
         }
-    }
-
-    fn five_in_a_row_in_next_thousand(&mut self, from: usize, byte: u8) -> bool {
-        for i in from..from + 1000 {
-            let quintuplets = &self.cache.apply(i).quintuplets;
-            if (quintuplets & (1 << (byte as u16))) != 0 {
-                return true;
-            }
-        }
-        false
+        unreachable!("No valid index found");
     }
 }
 
