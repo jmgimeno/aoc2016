@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use once_cell::sync::Lazy;
 
 static INPUT: Lazy<String> = Lazy::new(|| {
@@ -123,7 +122,7 @@ fn window_size(mut length: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{checksum, Dragon};
+    use crate::{checksum, Dragon, INPUT};
 
     #[test]
     fn test_iteration_example1() {
@@ -151,5 +150,15 @@ mod tests {
     #[test]
     fn test_example_part1() {
         assert_eq!(checksum("10000", 20), "01100".to_string());
+    }
+
+    #[test]
+    fn test_part1() {
+        assert_eq!(checksum(&INPUT, 272), "11100111011101111".to_string());
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(checksum(&INPUT, 35651584), "10001110010000110".to_string());
     }
 }
