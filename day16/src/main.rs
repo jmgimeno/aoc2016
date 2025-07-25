@@ -12,8 +12,7 @@ fn checksum(input: &str, length: usize) -> String {
     let size = window_size(length);
     let mut result = String::new();
     let mut buffer = vec!['0'; size];
-
-    let mut iter = dragon.chars().take(length);
+    let mut iter = dragon.iter_forward().take(length);
     let num_windows = length / size;
 
     for _ in 0..num_windows {
@@ -57,91 +56,135 @@ impl Dragon {
         }
     }
 
-    fn chars(&self) -> DragonIter<'_> {
-        DragonIter::new(self)
+    fn iter_forward(&self) -> DragonForwardIter<'_> {
+        DragonForwardIter::new(self)
+    }
+
+    fn iter_backward(&self) -> DragonBackwardIter<'_> {
+        DragonBackwardIter::new(self)
     }
 }
 
-struct DragonIter<'a> {
-    stack: Vec<Box<dyn Iterator<Item = char> + 'a>>,
+// Forward iterator
+pub struct DragonForwardIter<'a> {
+    stack: Vec<DragonForwardFrame<'a>>,
 }
 
-impl<'a> DragonIter<'a> {
-    fn new(dragon: &'a Dragon) -> Self {
-        let mut stack = Vec::new();
-        stack.push(Box::new(dragon.iter_chars()) as Box<dyn Iterator<Item = char> + 'a>);
-        DragonIter { stack }
+enum DragonForwardFrame<'a> {
+    Base(&'a str, usize),
+    Step {
+        left: Box<DragonForwardIter<'a>>,
+        middle: bool,
+        right: Box<DragonBackwardIter<'a>>,
+    },
+}
+
+impl<'a> DragonForwardIter<'a> {
+    pub fn new(dragon: &'a Dragon) -> Self {
+        let frame = match dragon {
+            Dragon::Base(s) => DragonForwardFrame::Base(s, 0),
+            Dragon::Step(d) => DragonForwardFrame::Step {
+                left: Box::new(DragonForwardIter::new(d)),
+                middle: false,
+                right: Box::new(DragonBackwardIter::new(d)),
+            },
+        };
+        Self { stack: vec![frame] }
     }
 }
 
-impl<'a> Iterator for DragonIter<'a> {
+impl<'a> Iterator for DragonForwardIter<'a> {
     type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(top) = self.stack.last_mut() {
-            if let Some(c) = top.next() {
-                return Some(c);
-            } else {
-                self.stack.pop();
+    fn next(&mut self) -> Option<char> {
+        while let Some(frame) = self.stack.last_mut() {
+            match frame {
+                DragonForwardFrame::Base(s, pos) => {
+                    if *pos < s.len() {
+                        let c = s.as_bytes()[*pos];
+                        *pos += 1;
+                        return Some(c as char);
+                    } else {
+                        self.stack.pop();
+                    }
+                }
+                DragonForwardFrame::Step { left, middle, right } => {
+                    if let Some(c) = left.next() {
+                        return Some(c);
+                    }
+                    if !*middle {
+                        *middle = true;
+                        return Some('0');
+                    }
+                    if let Some(c) = right.next() {
+                        // flip bits for right half
+                        return Some(if c == '0' { '1' } else { '0' });
+                    }
+                    self.stack.pop();
+                }
             }
         }
         None
     }
 }
 
-trait DragonCharIter<'a> {
-    fn iter_chars(&'a self) -> Box<dyn Iterator<Item = char> + 'a>;
+// Backward iterator
+pub struct DragonBackwardIter<'a> {
+    stack: Vec<DragonBackwardFrame<'a>>,
 }
 
-impl<'a> DragonCharIter<'a> for Dragon {
-    fn iter_chars(&'a self) -> Box<dyn Iterator<Item = char> + 'a> {
-        match self {
-            Dragon::Base(s) => Box::new(s.chars()),
-            Dragon::Step(d) => {
-                let left = d.iter_chars();
-                let middle = std::iter::once('0');
-                let right = match &**d {
-                    Dragon::Base(s) => {
-                        Box::new(RightHalf::new(s)) as Box<dyn Iterator<Item = char>>
-                    }
-                    _ => Box::new(
-                        d.iter_chars()
-                            .map(|c| if c == '0' { '1' } else { '0' })
-                            .collect::<Vec<_>>()
-                            .into_iter()
-                            .rev(),
-                    ),
-                };
-                Box::new(left.chain(middle).chain(right))
-            }
-        }
+enum DragonBackwardFrame<'a> {
+    Base(&'a str, isize),
+    Step {
+        right: Box<DragonForwardIter<'a>>,
+        middle: bool,
+        left: Box<DragonBackwardIter<'a>>,
+    },
+}
+
+impl<'a> DragonBackwardIter<'a> {
+    pub fn new(dragon: &'a Dragon) -> Self {
+        let frame = match dragon {
+            Dragon::Base(s) => DragonBackwardFrame::Base(s, s.len() as isize - 1),
+            Dragon::Step(d) => DragonBackwardFrame::Step {
+                right: Box::new(DragonForwardIter::new(d)),
+                middle: false,
+                left: Box::new(DragonBackwardIter::new(d)),
+            },
+        };
+        Self { stack: vec![frame] }
     }
 }
 
-struct RightHalf<'a> {
-    base: &'a str,
-    pos: usize,
-}
-
-impl<'a> RightHalf<'a> {
-    fn new(base: &'a str) -> Self {
-        Self {
-            base,
-            pos: base.len(),
-        }
-    }
-}
-
-impl<'a> Iterator for RightHalf<'a> {
+impl<'a> Iterator for DragonBackwardIter<'a> {
     type Item = char;
     fn next(&mut self) -> Option<char> {
-        if self.pos == 0 {
-            None
-        } else {
-            self.pos -= 1;
-            let c = self.base.as_bytes()[self.pos];
-            Some(if c == b'0' { '1' } else { '0' })
+        while let Some(frame) = self.stack.last_mut() {
+            match frame {
+                DragonBackwardFrame::Base(s, pos) => {
+                    if *pos >= 0 {
+                        let c = s.as_bytes()[*pos as usize];
+                        *pos -= 1;
+                        return Some(c as char);
+                    } else {
+                        self.stack.pop();
+                    }
+                }
+                DragonBackwardFrame::Step { right, middle, left } => {
+                    if let Some(c) = right.next() {
+                        return Some(if c == '0' { '1' } else { '0' });
+                    }
+                    if !*middle {
+                        *middle = true;
+                        return Some('0');
+                    }
+                    if let Some(c) = left.next() {
+                        return Some(c);
+                    }
+                    self.stack.pop();
+                }
+            }
         }
+        None
     }
 }
 
@@ -161,7 +204,7 @@ mod tests {
     #[test]
     fn test_iteration_example1() {
         let d1 = Dragon::Base("1".to_string());
-        let r1 = d1.chars().collect::<String>();
+        let r1 = d1.iter_forward().collect::<String>();
         assert_eq!(r1, "1".to_string());
         assert_eq!(d1.len(), r1.len());
     }
@@ -169,7 +212,7 @@ mod tests {
     #[test]
     fn test_iteration_example2() {
         let d2 = Dragon::Step(Box::new(Dragon::Base("0".to_string())));
-        let r2 = d2.chars().collect::<String>();
+        let r2 = d2.iter_forward().collect::<String>();
         assert_eq!(r2, "001".to_string());
         assert_eq!(d2.len(), r2.len());
     }
@@ -177,7 +220,7 @@ mod tests {
     #[test]
     fn test_generation() {
         let d = Dragon::new("10000".to_string(), 20);
-        let r = d.chars().take(20).collect::<String>();
+        let r = d.iter_forward().take(20).collect::<String>();
         assert_eq!(r, "10000011110010000111".to_string());
     }
 
