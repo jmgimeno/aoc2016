@@ -8,24 +8,32 @@ static DISKS: Lazy<Vec<Disk>> = Lazy::new(||
 
 fn main() {
     println!("Part 1: {}", part1(&DISKS));
+    println!("Part 2: {}", part2(&DISKS));
 }
 
-fn part1(disks: &[Disk]) -> u32 {
+fn part1(disks: &[Disk]) -> u64 {
     let eqns = disks.iter().map(|d| d.into()).collect::<Vec<_>>();
     let result = solve_many(&eqns);
-    println!("{:?}", result);
-    result.remainder as u32
+    result.remainder as u64
+}
+
+fn part2(disks: &[Disk]) -> u64 {
+    let mut eqns = disks.iter().map(|d| d.into()).collect::<Vec<_>>();
+    let new_disk = Disk::new(eqns.len() as u64 + 1, 11, 0);
+    eqns.push((&new_disk).into());
+    let result = solve_many(&eqns);
+    result.remainder as u64
 }
 
 #[derive(Clone, Debug)]
 struct Disk {
-    number: u32,
-    number_of_positions: u32,
-    position_at_zero: u32,
+    number: u64,
+    number_of_positions: u64,
+    position_at_zero: u64,
 }
 
 impl Disk {
-    fn new(number: u32, number_of_positions: u32, position_at_zero: u32) -> Self {
+    fn new(number: u64, number_of_positions: u64, position_at_zero: u64) -> Self {
         Self {
             number,
             number_of_positions,
@@ -59,9 +67,9 @@ impl FromStr for Disk {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let regexp = Regex::new(r"^Disc #(\d+) has (\d+) positions; at time=0, it is at position (\d+).$")?;
         if let Some(caps) = regexp.captures(s) {
-            let number = caps[1].parse::<u32>()?;
-            let number_of_positions = caps[2].parse::<u32>()?;
-            let position_at_zero = caps[3].parse::<u32>()?;
+            let number = caps[1].parse::<u64>()?;
+            let number_of_positions = caps[2].parse::<u64>()?;
+            let position_at_zero = caps[3].parse::<u64>()?;
             Ok(Self::new(number, number_of_positions, position_at_zero))
         } else {
             Err(DiskParseError::InvalidInput)
@@ -71,8 +79,8 @@ impl FromStr for Disk {
 
 #[derive(Copy, Clone, Debug)]
 struct CongruenceEquation {
-    remainder: i32,
-    modulus: u32,
+    remainder: i64,
+    modulus: u64,
 }
 
 impl From<&Disk> for CongruenceEquation {
@@ -83,7 +91,7 @@ impl From<&Disk> for CongruenceEquation {
     //      => so t = -(p0 + n) % P
     fn from(value: &Disk) -> Self {
         Self {
-            remainder: - (value.position_at_zero as i32 + value.number as i32),
+            remainder: - (value.position_at_zero as i64 + value.number as i64),
             modulus: value.number_of_positions,
         }.normalize()
     }
@@ -91,8 +99,8 @@ impl From<&Disk> for CongruenceEquation {
 
 impl CongruenceEquation {
     fn normalize(&self) -> Self {
-        let x = self.remainder % self.modulus as i32;
-        let x = if x >= 0 { x } else { x + self.modulus as i32 };
+        let x = self.remainder % self.modulus as i64;
+        let x = if x >= 0 { x } else { x + self.modulus as i64 };
         Self { remainder: x, modulus: self.modulus }
     }
 }
@@ -102,8 +110,8 @@ fn solve_two(eq1: CongruenceEquation, eq2: CongruenceEquation) -> CongruenceEqua
     let CongruenceEquation { remainder: a_2, modulus: n_2 } = eq2;
     let (gcd, m_1, m_2) = extended_euclidean_algorithm(n_1, n_2);
     assert_eq!(gcd, 1);
-    assert_eq!(m_1 * n_1 as i32 + m_2 * n_2 as i32, 1);
-    let x = a_1 * m_2 * n_2 as i32 + a_2 * m_1 * n_1 as i32;
+    assert_eq!(m_1 * n_1 as i64 + m_2 * n_2 as i64, 1);
+    let x = a_1 * m_2 * n_2 as i64 + a_2 * m_1 * n_1 as i64;
     let y = n_1 * n_2;
     CongruenceEquation { remainder: x, modulus: y }
 }
@@ -116,22 +124,22 @@ fn solve_many(eqns: &[CongruenceEquation]) -> CongruenceEquation {
     result
 }
 
-fn extended_euclidean_algorithm(a: u32, b: u32) -> (u32, i32, i32) {
+fn extended_euclidean_algorithm(a: u64, b: u64) -> (u64, i64, i64) {
     let mut old_r = a;
     let mut r = b;
-    let mut old_s = 1_i32;
-    let mut s = 0_i32;
-    let mut old_t = 0_i32;
-    let mut t = 1_i32;
+    let mut old_s = 1_i64;
+    let mut s = 0_i64;
+    let mut old_t = 0_i64;
+    let mut t = 1_i64;
     while r != 0 {
         let quotient = old_r / r;
         let new_r = old_r - quotient * r;
         old_r = r;
         r = new_r;
-        let new_s = old_s - quotient as i32 * s;
+        let new_s = old_s - quotient as i64 * s;
         old_s = s;
         s = new_s;
-        let new_t = old_t - quotient as i32 * t;
+        let new_t = old_t - quotient as i64 * t;
         old_t = t;
         t = new_t;
     }
@@ -158,4 +166,8 @@ mod tests {
         assert_eq!(part1(&DISKS), 121834);
     }
 
+    #[test]
+    fn test_part2() {
+        assert_eq!(part2(&DISKS), 3208099);
+    }
 }
