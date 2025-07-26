@@ -44,14 +44,24 @@ fn checksum(dragon_iterator: &mut impl Iterator<Item = char>, size: usize) -> St
 }
 
 struct DragonIterator<'a> {
-    stack: Vec<(&'a str, usize, usize, bool)>,
+    seed: &'a str,
+    rev_inv_seed: String,
+    stack: Vec<(&'a str, &'a str, &'static str, &'static str, usize, usize)>,
 }
 
 impl<'a> DragonIterator<'a> {
     fn new(seed: &'a str, level: usize) -> Self {
-        Self {
-            stack: vec![(seed, level, 0, false)],
-        }
+        let rev_inv_seed = seed.chars().rev().map(|c| if c == '0' {'1'} else {'0'}).collect::<String>();
+        // Create the struct first
+        let mut iter = Self {
+            seed,
+            rev_inv_seed: rev_inv_seed.clone(),
+            stack: Vec::new(),
+        };
+        // Now push references to the owned strings
+        // SAFETY: The strings live as long as the struct
+        iter.stack.push((&iter.seed, &iter.rev_inv_seed, "0", "1", 0, level));
+        iter
     }
 }
 
@@ -59,28 +69,21 @@ impl<'a> Iterator for DragonIterator<'a> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((s, level, pos, reverse_and_flip)) = self.stack.pop() {
+        while let Some((s, rev_inv_s, sep, inv_sep, pos, level)) = self.stack.pop() {
             let len = s.len();
             if level == 0 {
                 if pos < len {
-                    let idx = if reverse_and_flip { len - 1 - pos } else { pos };
-                    let c = s.as_bytes()[idx];
-                    let ch = if reverse_and_flip {
-                        if c == b'0' { '1' } else { '0' }
-                    } else {
-                        c as char
-                    };
+                    let ch = s.as_bytes()[pos] as char;
                     if pos + 1 < len {
-                        self.stack.push((s, level, pos + 1, reverse_and_flip));
+                        self.stack.push((s, rev_inv_s, sep, inv_sep, pos + 1, level));
                     }
                     return Some(ch);
                 }
             } else {
                 // Push right, middle, left frames (in reverse order for stack)
-                let sep = if reverse_and_flip { "1" } else { "0" };
-                self.stack.push((s, level - 1, 0, true));
-                self.stack.push((sep, 0, 0, false));
-                self.stack.push((s, level - 1, 0, false));
+                self.stack.push((rev_inv_s, s, sep, inv_sep, 0, level - 1));
+                self.stack.push((sep, "", "", "", 0, 0));
+                self.stack.push((s, rev_inv_s, sep, inv_sep, 0, level - 1));
             }
         }
         None
