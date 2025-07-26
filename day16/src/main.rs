@@ -3,23 +3,31 @@ use once_cell::sync::Lazy;
 static INPUT: Lazy<String> = Lazy::new(|| common::read_file_as_string("data/day16.txt").unwrap());
 
 fn main() {
-    println!("Part 1: {}", checksum(&INPUT, 272));
-    println!("Part 1: {}", checksum(&INPUT, 35651584));
+    println!("Part 1: {}", fill_and_checksum(&INPUT, 272));
+    println!("Part 2: {}", fill_and_checksum(&INPUT, 35651584));
 }
 
-fn checksum(input: &str, length: usize) -> String {
-    let levels = needed_levels(input, length);
-    let mut iter = DragonIterator::new(input, levels).take(length);
-    let size = window_size(length);
+fn fill_and_checksum(input: &str, min_size: usize) -> String {
+    let mut dragon_iterator = create_dragon_iterator(input, min_size);
+    checksum(&mut dragon_iterator, min_size)
+}
+
+fn create_dragon_iterator(input: &str, min_size: usize) -> impl Iterator<Item = char> {
+    let levels = needed_levels(input, min_size);
+    DragonIterator::new(input, levels).take(min_size)
+}
+
+fn checksum(dragon_iterator: &mut impl Iterator<Item = char>, size: usize) -> String {
+    let window_size = window_size(size);
+    let num_windows = size / window_size;
+    let mut buffer = vec!['0'; window_size];
     let mut result = String::new();
-    let mut buffer = vec!['0'; size];
-    let num_windows = length / size;
 
     for _ in 0..num_windows {
-        for i in 0..size {
-            buffer[i] = iter.next().unwrap();
+        for i in 0..window_size {
+            buffer[i] = dragon_iterator.next().unwrap();
         }
-        let mut n = size;
+        let mut n = window_size;
         while n > 1 {
             for i in 0..n / 2 {
                 buffer[i] = if buffer[2 * i] == buffer[2 * i + 1] {
@@ -126,16 +134,16 @@ mod tests {
 
     #[test]
     fn test_example_part1() {
-        assert_eq!(checksum("10000", 20), "01100".to_string());
+        assert_eq!(fill_and_checksum("10000", 20), "01100".to_string());
     }
 
     #[test]
     fn test_part1() {
-        assert_eq!(checksum(&INPUT, 272), "11100111011101111".to_string());
+        assert_eq!(fill_and_checksum(&INPUT, 272), "11100111011101111".to_string());
     }
 
     #[test]
     fn test_part2() {
-        assert_eq!(checksum(&INPUT, 35651584), "10001110010000110".to_string());
+        assert_eq!(fill_and_checksum(&INPUT, 35651584), "10001110010000110".to_string());
     }
 }
