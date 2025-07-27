@@ -93,4 +93,9 @@ mod tests {
     fn test_example_part2() {
         assert_eq!(part2(&5), 2);
     }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(part2(&NUM_ELVES), 1424135);
+    }
 }
