@@ -1,4 +1,3 @@
-use bitvec::prelude::*;
 use once_cell::sync::Lazy;
 
 static NUM_ELVES: Lazy<usize> = Lazy::new(|| {
@@ -9,27 +8,71 @@ static NUM_ELVES: Lazy<usize> = Lazy::new(|| {
 });
 
 fn main() {
-   println!("Part 1: {}", part1(&NUM_ELVES));
+    println!("Part 1: {}", part1(&NUM_ELVES));
+    println!("Part 2: {}", part2(&NUM_ELVES));
 }
 
 fn part1(num_elves: &usize) -> usize {
-    let mut elves = bitvec![u8, Lsb0; 1; *num_elves];
-    let mut remaining = *num_elves;
-    let mut idx = 0;
-    while remaining > 1 {
-        if elves[idx] {
-            let mut next_idx = (idx + 1) % elves.len();
-            while !elves[next_idx] {
-                next_idx = (next_idx + 1) % elves.len();
-            }
-            elves.set(next_idx, false);
-            remaining -= 1;
+    let mut ring = ElfRing::new(*num_elves);
+    let mut elf_idx = 0;
+    while ring.size > 1 {
+        let to_remove = ring.next_elf(elf_idx);
+        ring.remove_elf(to_remove);
+        elf_idx = ring.next_elf(elf_idx);
+    }
+    elf_idx + 1
+}
+
+fn part2(num_elves: &usize) -> usize {
+    let mut ring = ElfRing::new(*num_elves);
+    let mut elf_idx = 0;
+    while ring.size > 1 {
+        let mut to_remove = ring.next_elf(elf_idx);
+        for _ in 1..ring.size / 2 {
+            to_remove = ring.next_elf(to_remove);
         }
-        if remaining != 1 {
-            idx = (idx + 1) % elves.len();
+        ring.remove_elf(to_remove);
+        elf_idx = ring.next_elf(elf_idx);
+    }
+    elf_idx + 1
+}
+
+struct Elf {
+    next_idx: usize,
+    previous_idx: usize,
+}
+
+struct ElfRing {
+    size: usize,
+    elves: Vec<Elf>,
+}
+
+impl ElfRing {
+    fn new(num_elves: usize) -> Self {
+        let mut elves = Vec::with_capacity(num_elves);
+        for i in 0..num_elves {
+            elves.push(Elf {
+                next_idx: (i + 1) % num_elves,
+                previous_idx: (i + num_elves - 1) % num_elves,
+            })
+        }
+        Self {
+            size: num_elves,
+            elves
         }
     }
-    idx + 1
+
+    fn next_elf(&self, idx: usize) -> usize {
+        self.elves[idx].next_idx
+    }
+
+    fn remove_elf(&mut self, idx: usize) {
+        let previous_idx = self.elves[idx].previous_idx;
+        self.elves[previous_idx].next_idx = self.elves[idx].next_idx;
+        let next_idx = self.elves[idx].next_idx;
+        self.elves[next_idx].previous_idx = self.elves[idx].previous_idx;
+        self.size -= 1;
+    }
 }
 
 #[cfg(test)]
@@ -44,5 +87,10 @@ mod tests {
     #[test]
     fn test_part1() {
         assert_eq!(part1(&NUM_ELVES), 1842613);
+    }
+
+    #[test]
+    fn test_example_part2() {
+        assert_eq!(part2(&5), 2);
     }
 }
