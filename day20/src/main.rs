@@ -14,26 +14,26 @@ fn main() {
 }
 
 fn part1(ip_ranges: &[IPRange]) -> u32 {
-    let mut possible_start = 0;
+    let mut next_ip = 0;
     for IPRange { begin, end } in ip_ranges {
-        if possible_start < *begin {
-            return possible_start;
+        if next_ip < *begin {
+            return next_ip;
         }
-        possible_start = u32::max(possible_start, end.saturating_add(1));
+        next_ip = u32::max(next_ip, end.saturating_add(1));
     }
     unreachable!("Should never reach here")
 }
 
 fn part2(ip_ranges: &[IPRange]) -> u32 {
     let mut count_ips = 0;
-    let mut possible_start = 0;
+    let mut next_ip = 0;
     for IPRange { begin, end } in ip_ranges {
-        if possible_start < *begin {
-            count_ips += *begin - possible_start;
+        if next_ip < *begin {
+            count_ips += *begin - next_ip;
         }
-        possible_start = u32::max(possible_start, end.saturating_add(1));
+        next_ip = u32::max(next_ip, end.saturating_add(1));
     }
-    count_ips += u32::MAX - possible_start;
+    count_ips += u32::MAX - next_ip;
     count_ips
 }
 
