@@ -25,6 +25,7 @@
       <sourceFolder url="file://$MODULE_DIR$/day18/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/day19/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/day20/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/day21/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/common/target" />
       <excludeFolder url="file://$MODULE_DIR$/downloader/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
