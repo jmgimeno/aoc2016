@@ -13,9 +13,10 @@ fn main() {
 }
 
 fn part1(num_elves: usize) -> usize {
+    // Josephus' problem:
     // n = 2^k + m (k largest) => 2 * m + 1 survives
     // p = 2^k, m = n - p = n - 2^k
-    // 2 * m + 1 = 2 * (n - 2^k) + 1 = 2 * n - 2^k+1 + 1
+    // 2 * m + 1 = 2 * (n - 2^k) + 1 = 2*n - 2^k+1 + 1
     let mut p = 1;
     while p < num_elves {
         p *= 2;
@@ -44,8 +45,8 @@ fn part2(num_elves: usize) -> usize {
     } else {
         // (3 * p) is the next power of 3
         // (3 * p - num_elves) is the (negative) distance to the next power of three
-        // For each element of distance we have to subtract 2
-        // num_elves - (3 * p - num_elves) = 2 * num_elves - 3 * p
+        // For each element of distance we have to subtract 2 from 3 * p
+        // 3 * p - (3 * p - num_elves) * 2 = 2 * num_elves - 3 * p
         2 * num_elves - 3 * p
     }
 }
