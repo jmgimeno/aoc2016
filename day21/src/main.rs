@@ -81,13 +81,8 @@ impl Scrambler {
     }
 
     fn reverse_positions(&mut self, from: &usize, to: &usize) {
-        let mut i = usize::min(*from, *to);
-        let mut j = usize::max(*from, *to);
-        while i < j {
-            self.state.swap(i, j);
-            i += 1;
-            j -= 1;
-        }
+        let (i, j) = (usize::min(*from, *to), usize::max(*from, *to));
+        self.state[i..=j].reverse();
     }
 
     fn rotate_based_on_position_of_letter(&mut self, letter: &u8) {
@@ -151,9 +146,6 @@ static ROTATE_LEFT_REGEX: Lazy<Regex> =
 static REVERSE_POSITIONS_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^reverse positions (\d) through (\d)$").unwrap());
 
-static ROTATE_BASED_ON_POSITION_OF_LETTER_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^rotate based on position of letter (\w)$").unwrap());
-
 static SWAP_LETTER_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^swap letter (\w) with letter (\w)$").unwrap());
 
@@ -187,9 +179,6 @@ impl FromStr for Operation {
             let from = cap[1].parse::<usize>().unwrap();
             let to = cap[2].parse::<usize>().unwrap();
             Ok(Operation::ReversePositions(from, to))
-        } else if let Some(cap) = ROTATE_BASED_ON_POSITION_OF_LETTER_REGEX.captures(s) {
-            let letter = cap[1].as_bytes().first().unwrap();
-            Ok(Operation::RotateBasedOnPositionOfLetter(*letter))
         } else if let Some(cap) = SWAP_LETTER_REGEX.captures(s) {
             let from = cap[1].as_bytes().first().unwrap();
             let to = cap[2].as_bytes().first().unwrap();
