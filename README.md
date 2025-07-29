@@ -22,3 +22,5 @@
 - Day 20: Firewall Rules
 - Day 21: Scrambled Letters and Hash
 - Day 22: Grid Computing
+- Day 23: Safe Cracking
+- Day 24: Air Duct Spelunking
