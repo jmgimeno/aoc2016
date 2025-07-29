@@ -149,11 +149,9 @@ impl Computer {
             match instruction {
                 Cpy(from, to) => {
                     if let Register(to_reg) = to {
-                        match from {
-                            Register(from_reg) => {
-                                self.registers[*to_reg] = self.registers[*from_reg]
-                            }
-                            Value(from_value) => self.registers[*to_reg] = *from_value,
+                        self.registers[*to_reg] = match from {
+                            Register(from_reg) => self.registers[*from_reg],
+                            Value(from_value) => *from_value,
                         }
                     }
                 }
@@ -187,10 +185,9 @@ impl Computer {
                         Value(value) => *value,
                     } as isize;
                     let addr = ip as isize + step;
-                    if addr < 0 || addr >= program.0.len() as isize {
-                        continue;
+                    if addr >= 0 && addr < program.0.len() as isize {
+                        program.0[addr as usize] = program.0[addr as usize].toggle();
                     }
-                    program.0[addr as usize] = program.0[addr as usize].toggle();
                 }
             }
             ip += 1;
@@ -244,5 +241,10 @@ mod tests {
         let mut computer = Computer::default();
         computer.run(&mut program);
         assert_eq!(computer.registers[0], 3);
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(part1(&PROGRAM), 12000);
     }
 }
