@@ -10,12 +10,21 @@ static PROGRAM: Lazy<Program> = Lazy::new(|| {
 
 fn main() {
     println!("Part 1: {}", part1(&PROGRAM));
+    println!("Part 1: {}", part2(&PROGRAM));
 }
 
 fn part1(program: &Program) -> i32 {
     let mut program = program.clone();
     let mut computer = Computer::default();
     computer.registers[0] = 7;
+    computer.run(&mut program);
+    computer.registers[0]
+}
+
+fn part2(program: &Program) -> i32 {
+    let mut program = program.clone();
+    let mut computer = Computer::default();
+    computer.registers[0] = 12;
     computer.run(&mut program);
     computer.registers[0]
 }
@@ -140,12 +149,8 @@ impl Computer {
         use Arg::*;
         use Instruction::*;
         let mut ip = 0;
-        // eprintln!("Program: {:?}", program);
-        // eprintln!("Registers: {:?}", self.registers);
         while ip < program.0.len() {
             let instruction = &program.0[ip];
-            // eprintln!("At {ip} executing {:?}", instruction);
-            // eprintln!("Registers: {:?}", self.registers);
             match instruction {
                 Cpy(from, to) => {
                     if let Register(to_reg) = to {
@@ -191,9 +196,6 @@ impl Computer {
                 }
             }
             ip += 1;
-            // eprintln!("Program: {:?}", program);
-            // eprintln!("Registers: {:?}", self.registers);
-            // eprintln!("-----------------------------------------------------------------");
         }
     }
 }
@@ -244,7 +246,12 @@ mod tests {
     }
 
     #[test]
-    fn test_part2() {
+    fn test_part1() {
         assert_eq!(part1(&PROGRAM), 12000);
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(part2(&PROGRAM), 479008560);
     }
 }
