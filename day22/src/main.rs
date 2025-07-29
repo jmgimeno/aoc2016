@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::{HashSet, VecDeque};
+use std::ops::Index;
 use std::str::FromStr;
 
 static NODES: Lazy<Vec<Node>> = Lazy::new(|| parse_file("data/day22.txt"));
@@ -30,22 +31,25 @@ fn part1(grid: &[Node]) -> usize {
 
 fn part2(nodes: &[Node]) -> usize {
     let grid = Grid::new(nodes);
-    let empty_node = grid.get_empty_node();
-    let goal = (grid.max_x, 0);
-    let initial_state = State { empty_node, goal };
+    let initial_state = State {
+        empty_node: grid.get_empty_node(),
+        goal: Position {
+            x: grid.max_x,
+            y: 0,
+        },
+    };
     let mut queue = VecDeque::new();
     queue.push_back((0, initial_state.clone()));
     let mut visited = HashSet::new();
     visited.insert(initial_state);
     while let Some((depth, state)) = queue.pop_front() {
         for transfer in grid.transfers_to_empty(state.empty_node) {
-            assert_eq!(transfer.to, state.empty_node, "Transfer to wrong node");
             let new_goal = if transfer.from == state.goal {
                 transfer.to
             } else {
                 state.goal
             };
-            if new_goal == (0, 0) {
+            if new_goal.x == 0 && new_goal.y == 0 {
                 return depth + 1;
             }
             let next_state = State {
@@ -63,8 +67,8 @@ fn part2(nodes: &[Node]) -> usize {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct State {
-    empty_node: (usize, usize),
-    goal: (usize, usize),
+    empty_node: Position,
+    goal: Position,
 }
 
 #[derive(Debug)]
@@ -85,60 +89,52 @@ impl Grid {
         }
         Self { max_x, max_y, grid }
     }
+    
+    fn get_empty_node(&self) -> Position {
+        (0..=self.max_x)
+            .flat_map(|x| (0..=self.max_y).map(move |y| Position { x, y }))
+            .find(|&pos| self[pos].used == 0)
+            .expect("No empty node found")
+    }
 
-    fn get_empty_node(&self) -> (usize, usize) {
-        for x in 0..=self.max_x {
-            for y in 0..=self.max_y {
-                let node = self.get(x, y);
-                if node.used == 0 {
-                    return (x, y);
+    fn pos_to_index(&self, pos: Position) -> usize {
+        pos.y * (self.max_x + 1) + pos.x
+    }
+
+    fn transfers_to_empty(&self, empty_node: Position) -> Vec<Transfer> {
+        let empty_size = self[empty_node].size;
+        DIRECTIONS
+            .iter()
+            .filter_map(|d| {
+                let from = Position {
+                    x: empty_node.x.wrapping_add(d.x),
+                    y: empty_node.y.wrapping_add(d.y),
+                };
+                if from.x <= self.max_x && from.y <= self.max_y && self[from].used <= empty_size {
+                    Some(Transfer {
+                        from,
+                        to: empty_node,
+                    })
+                } else {
+                    None
                 }
-            }
-        }
-        unreachable!("No empty node found");
+            })
+            .collect()
     }
+}
 
-    fn get(&self, x: usize, y: usize) -> &Node {
-        &self.grid[y * (self.max_x + 1) + x]
-    }
+impl Index<Position> for Grid {
+    type Output = Node;
 
-    fn transfers_to_empty(&self, empty_node: (usize, usize)) -> Vec<Transfer> {
-        let mut transfers = Vec::new();
-        let empty_size = self.get(empty_node.0, empty_node.1).size;
-        if empty_node.0 > 0 && self.get(empty_node.0 - 1, empty_node.1).used <= empty_size {
-            transfers.push(Transfer {
-                from: (empty_node.0 - 1, empty_node.1),
-                to: empty_node,
-            });
-        }
-        if empty_node.1 > 0 && self.get(empty_node.0, empty_node.1 - 1).used <= empty_size {
-            transfers.push(Transfer {
-                from: (empty_node.0, empty_node.1 - 1),
-                to: empty_node,
-            });
-        }
-        if empty_node.0 < self.max_x && self.get(empty_node.0 + 1, empty_node.1).used <= empty_size
-        {
-            transfers.push(Transfer {
-                from: (empty_node.0 + 1, empty_node.1),
-                to: empty_node,
-            });
-        }
-        if empty_node.1 < self.max_y && self.get(empty_node.0, empty_node.1 + 1).used <= empty_size
-        {
-            transfers.push(Transfer {
-                from: (empty_node.0, empty_node.1 + 1),
-                to: empty_node,
-            });
-        }
-        transfers
+    fn index(&self, pos: Position) -> &Self::Output {
+        &self.grid[self.pos_to_index(pos)]
     }
 }
 
 #[derive(Debug)]
 struct Transfer {
-    from: (usize, usize),
-    to: (usize, usize),
+    from: Position,
+    to: Position,
 }
 
 fn parse_file(filename: &str) -> Vec<Node> {
@@ -149,6 +145,25 @@ fn parse_file(filename: &str) -> Vec<Node> {
         .map(|line| line.parse::<Node>().unwrap())
         .collect()
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+struct Position {
+    x: usize,
+    y: usize,
+}
+
+const DIRECTIONS: [Position; 4] = [
+    Position { x: 0, y: 1 },
+    Position { x: 1, y: 0 },
+    Position {
+        x: 0,
+        y: usize::MAX,
+    }, // -1 with wrapping
+    Position {
+        x: usize::MAX,
+        y: 0,
+    }, // -1 with wrapping
+];
 
 static NODE_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^/dev/grid/node-x(\d+)-y(\d+)\s+(\d+)T\s+(\d+)T\s+(\d+)T\s+(\d+)%$").unwrap()
@@ -200,41 +215,34 @@ mod tests {
         let mut transfers = Vec::new();
         for x in 0..=grid.max_x {
             for y in 0..=grid.max_y {
-                let node = grid.get(x, y);
-                if x > 0 && node.used > 0 && node.used <= grid.get(x - 1, y).avail {
-                    transfers.push(Transfer {
-                        from: (x, y),
-                        to: (x - 1, y),
-                    });
+                let pos = Position { x, y };
+                let node = &grid[pos];
+                if node.used == 0 {
+                    continue;
                 }
-                if y > 0 && node.used > 0 && node.used <= grid.get(x, y - 1).avail {
-                    transfers.push(Transfer {
-                        from: (x, y),
-                        to: (x, y - 1),
-                    });
-                }
-                if x < grid.max_x && node.used > 0 && node.used <= grid.get(x + 1, y).avail {
-                    transfers.push(Transfer {
-                        from: (x, y),
-                        to: (x + 1, y),
-                    });
-                }
-                if y < grid.max_y && node.used > 0 && node.used <= grid.get(x, y + 1).avail {
-                    transfers.push(Transfer {
-                        from: (x, y),
-                        to: (x, y + 1),
-                    });
+                for d in &DIRECTIONS {
+                    let to = Position {
+                        x: pos.x.wrapping_add(d.x),
+                        y: pos.y.wrapping_add(d.y),
+                    };
+                    if to.x <= grid.max_x
+                        && to.y <= grid.max_y
+                        && grid[to].used == 0
+                        && node.used <= grid[to].avail
+                    {
+                        transfers.push(Transfer { from: pos, to });
+                    }
                 }
             }
         }
         transfers
     }
-    
+
     #[test]
     fn all_transfers_are_to_the_empty_node() {
         let grid = Grid::new(&NODES);
         for transfer in all_transfers(&grid) {
-            let used_at_destination = grid.get(transfer.to.0, transfer.to.1).used;
+            let used_at_destination = grid[transfer.to].used;
             assert_eq!(used_at_destination, 0, "Transfer to a non-empty node");
         }
     }
