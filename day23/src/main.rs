@@ -15,6 +15,7 @@ fn main() {
 fn part1(program: &Program) -> i32 {
     let mut program = program.clone();
     let mut computer = Computer::default();
+    computer.registers[0] = 7;
     computer.run(&mut program);
     computer.registers[0]
 }
@@ -25,6 +26,20 @@ enum Instruction {
     Inc(Arg),
     Dec(Arg),
     Jnz(Arg, Arg),
+    Toggle(Arg),
+}
+
+impl Instruction {
+    fn toggle(&self) -> Instruction {
+        use Instruction::*;
+        match self {
+            Cpy(from, to) => Jnz(from.clone(), to.clone()),
+            Inc(reg) => Dec(reg.clone()),
+            Dec(reg) => Inc(reg.clone()),
+            Jnz(value, step) => Cpy(value.clone(), step.clone()),
+            Toggle(step) => Inc(step.clone()),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -75,11 +90,25 @@ impl FromStr for Instruction {
             "dec" => Ok(Dec(Register(to_register(parts[1])?))),
             "jnz" => {
                 let left = parts[1].parse::<i32>();
-                let right = parts[2].parse::<i32>();
-                if let Ok(value) = left {
-                    Ok(Jnz(Value(value), Value(right?)))
+                let left_arg = if let Ok(value) = left {
+                    Value(value)
                 } else {
-                    Ok(Jnz(Register(to_register(parts[1])?), Value(right?)))
+                    Register(to_register(parts[1])?)
+                };
+                let right = parts[2].parse::<i32>();
+                let right_arg = if let Ok(value) = right {
+                    Value(value)
+                } else {
+                    Register(to_register(parts[2])?)
+                };
+                Ok(Jnz(left_arg, right_arg))
+            }
+            "tgl" => {
+                let steps = parts[1].parse::<i32>();
+                if let Ok(value) = steps {
+                    Ok(Toggle(Value(value)))
+                } else {
+                    Ok(Toggle(Register(to_register(parts[1])?)))
                 }
             }
             _ => Err(ParseError::Custom(format!("Unknown instruction: {}", s))),
@@ -111,8 +140,12 @@ impl Computer {
         use Arg::*;
         use Instruction::*;
         let mut ip = 0;
+        // eprintln!("Program: {:?}", program);
+        // eprintln!("Registers: {:?}", self.registers);
         while ip < program.0.len() {
             let instruction = &program.0[ip];
+            // eprintln!("At {ip} executing {:?}", instruction);
+            // eprintln!("Registers: {:?}", self.registers);
             match instruction {
                 Cpy(from, to) => {
                     if let Register(to_reg) = to {
@@ -122,22 +155,18 @@ impl Computer {
                             }
                             Value(from_value) => self.registers[*to_reg] = *from_value,
                         }
-                    } else {
-                        panic!("Invalid register");
                     }
                 }
-                Inc(reg) =>
+                Inc(reg) => {
                     if let Register(to_reg) = reg {
                         self.registers[*to_reg] += 1;
-                    } else {
-                        panic!("Invalid register");
                     }
-                Dec(reg) =>
+                }
+                Dec(reg) => {
                     if let Register(to_reg) = reg {
                         self.registers[*to_reg] -= 1;
-                    } else {
-                        panic!("Invalid register");
                     }
+                }
                 Jnz(value, step) => {
                     let test_value = match value {
                         Register(reg) => self.registers[*reg],
@@ -152,8 +181,22 @@ impl Computer {
                         continue;
                     }
                 }
+                Toggle(step) => {
+                    let step = match step {
+                        Register(reg) => self.registers[*reg],
+                        Value(value) => *value,
+                    } as isize;
+                    let addr = ip as isize + step;
+                    if addr < 0 || addr >= program.0.len() as isize {
+                        continue;
+                    }
+                    program.0[addr as usize] = program.0[addr as usize].toggle();
+                }
             }
             ip += 1;
+            // eprintln!("Program: {:?}", program);
+            // eprintln!("Registers: {:?}", self.registers);
+            // eprintln!("-----------------------------------------------------------------");
         }
     }
 }
@@ -166,7 +209,6 @@ mod tests {
     fn test_example_day12() {
         let input = vec!["cpy 41 a", "inc a", "inc a", "dec a", "jnz a 2", "dec a"];
         let mut program = Program(input.into_iter().map(|s| s.parse().unwrap()).collect());
-        eprintln!("{program:?}");
         let mut computer = Computer::default();
         computer.run(&mut program);
         assert_eq!(computer.registers, [42, 0, 0, 0]);
@@ -177,7 +219,6 @@ mod tests {
         let mut program: Program = common::read_file_as_elements("data/day12.txt")
             .unwrap()
             .into();
-        eprintln!("{program:?}");
         let mut computer = Computer::default();
         computer.run(&mut program);
         assert_eq!(computer.registers[0], 318083);
@@ -195,12 +236,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_example_part1() {
         let input = vec![
             "cpy 2 a", "tgl a", "tgl a", "tgl a", "cpy 1 a", "dec a", "dec a",
         ];
-        let program = Program(input.into_iter().map(|s| s.parse().unwrap()).collect());
-        assert_eq!(part1(&program), 3);
+        let mut program = Program(input.into_iter().map(|s| s.parse().unwrap()).collect());
+        let mut computer = Computer::default();
+        computer.run(&mut program);
+        assert_eq!(computer.registers[0], 3);
     }
 }
